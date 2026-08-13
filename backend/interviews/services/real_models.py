@@ -134,16 +134,14 @@ class QwenASRModel:
 
     def transcribe(self, audio, sample_rate):
         ''' Convert one candidate utterance into interview text while Qwen3-ASR detects the spoken language. '''
-        inputs = self.processor.apply_transcription_request(audio=(audio, sample_rate))
-        inputs = inputs.to(next(self.model.parameters()).device)
+        inputs = self.processor.apply_transcription_request(audio=audio)
+        inputs = inputs.to(next(self.model.parameters()).device, self.model.dtype)
 
         with torch.inference_mode():
             generation = self.model.generate(**inputs, max_new_tokens=512, do_sample=False)
 
-        output = generation[0][inputs['input_ids'].shape[-1]:]
-        text = self.processor.decode(output, skip_special_tokens=True).strip()
-        match = re.search(r'<asr_text>(.*?)</asr_text>', text, flags=re.DOTALL)
-        return match.group(1).strip() if match else text
+        output = generation[:, inputs['input_ids'].shape[-1]:]
+        return self.processor.decode(output, return_format='transcription_only')[0].strip()
 
 class QwenGuardModel:
     ''' Protect candidate input and interviewer output with Qwen/Qwen3Guard-Gen-4B. '''
