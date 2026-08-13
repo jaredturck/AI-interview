@@ -17,6 +17,3 @@ torchaudio
 onnxruntime
 einops
 sox
-
-# Qwen3-TTS 0.1.1 pins Transformers 4.57.3 in its package metadata, while Qwen3-ASR pins 4.57.6.
-# Install qwen-tts separately with --no-deps after this file. Its runtime dependencies are listed above.
