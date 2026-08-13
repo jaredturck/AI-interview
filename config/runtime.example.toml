@@ -1,0 +1,45 @@
+[django]
+debug = true
+secret_key = "replace-this-before-production"
+allowed_hosts = ["127.0.0.1", "localhost"]
+csrf_trusted_origins = ["http://127.0.0.1:5173", "http://localhost:5173"]
+
+[company]
+recruitment_email = "recruitment@example.com"
+
+[interview]
+max_minutes = 30
+disconnect_grace_seconds = 120
+max_text_chars = 12000
+max_audio_bytes = 20000000
+min_candidate_turns_before_auto_end = 8
+auto_end_check_every_turns = 2
+review_transcript_default = false
+
+[models]
+mode = "mock"
+load_live_in_8bit = true
+load_evaluator_in_8bit = true
+interviewer_model = "Qwen/Qwen3.5-9B"
+misuse_model = "Qwen/Qwen3.5-4B"
+guard_model = "Qwen/Qwen3Guard-Gen-4B"
+asr_model = "Qwen/Qwen3-ASR-1.7B"
+tts_model = "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice"
+evaluator_model = "Qwen/Qwen3.6-27B"
+interviewer_device = "cuda:0"
+tts_device = "cuda:0"
+asr_device = "cuda:1"
+misuse_device = "cuda:1"
+guard_device = "cuda:1"
+evaluator_device_map = "auto"
+tts_speaker = "Ryan"
+tts_instruct = "Speak clearly, calmly, warmly, and at a natural interview pace."
+
+[evaluation]
+seed = 3407
+question_max_tokens = 2048
+synthesis_max_tokens = 4096
+
+[rag]
+max_chunks = 3
+minimum_score = 0.8
