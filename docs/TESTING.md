@@ -1,19 +1,20 @@
 # Testing
 
-The project defaults to mock-model mode so application behaviour can be tested without GPU model weights.
-
-Run the complete local test command from the project root:
+Run the project test command from the repository root:
 
 ```bash
 npm test
 ```
 
-This performs:
+It runs:
 
 1. `python backend/manage.py check`
-2. `python -m pytest backend`
-3. `vite build`
+2. `python backend/manage.py makemigrations --check --dry-run`
+3. `python -m pytest backend`
+4. `npm run build`
 
-The Python tests cover normal interview turns, content-safety redirection, accumulated misuse termination, the multi-criterion evaluator, HTTP session/token behaviour and a Channels WebSocket flow.
+The test suite directly injects a deterministic fake model suite into the process-wide model runtime. The production code has no mock-model configuration or mock-model mode.
 
-Real-model verification must additionally be performed on the target dual-3090 machine because model loading, CUDA placement, latency and memory use cannot be validated by mock tests.
+Tests cover candidate account creation, authentication requirements, interview ownership, account history, review requests, normal interviewer turns, safety redirection, accumulated misuse termination, multi-criterion evaluation and authenticated Channels WebSocket behavior.
+
+Real-model verification must be performed separately on the target dual-RTX-3090 host because CUDA placement, VRAM consumption, first-load time, ASR/TTS package compatibility and generation latency cannot be validated by lightweight application tests.

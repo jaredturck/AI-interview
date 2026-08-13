@@ -1,6 +1,8 @@
 ''' Database models for interview runtime data and evaluation results. '''
-import hashlib, secrets, uuid
 
+import uuid
+
+from django.conf import settings
 from django.db import models
 
 class InterviewSession(models.Model):
@@ -21,31 +23,17 @@ class InterviewSession(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    candidate_name = models.CharField(max_length=200, blank=True)
-    candidate_email = models.EmailField(blank=True)
-    language = models.CharField(max_length=40, default='English')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='interviews')
     confirm_transcript = models.BooleanField(default=False)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='created')
     result = models.CharField(max_length=20, choices=RESULT_CHOICES, blank=True)
-    access_token_hash = models.CharField(max_length=64)
     started_at = models.DateTimeField(null=True, blank=True)
     ended_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def issue_access_token(self):
-        ''' Create and store a hashed access token for the interview. '''
-        token = secrets.token_urlsafe(32)
-        self.access_token_hash = hashlib.sha256(token.encode()).hexdigest()
-        return token
-
-    def token_matches(self, token):
-        ''' Return whether a supplied access token belongs to the interview. '''
-        token_hash = hashlib.sha256(token.encode()).hexdigest()
-        return secrets.compare_digest(self.access_token_hash, token_hash)
-
     def __str__(self):
         ''' Return a readable interview identifier. '''
-        return f'{self.candidate_name or "Candidate"} - {self.id}'
+        return f'{self.user.email} - {self.id}'
 
 class ConversationTurn(models.Model):
     ''' Store one text turn from the candidate or interviewer. '''
@@ -83,9 +71,7 @@ class EvaluationAnswer(models.Model):
 
 class HumanReviewRequest(models.Model):
     ''' Store a candidate request for human review. '''
-    interview = models.ForeignKey(InterviewSession, on_delete=models.CASCADE, related_name='review_requests')
-    name = models.CharField(max_length=200)
-    email = models.EmailField()
+    interview = models.OneToOneField(InterviewSession, on_delete=models.CASCADE, related_name='review_request')
     explanation = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 

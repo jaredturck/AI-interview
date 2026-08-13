@@ -1,4 +1,5 @@
-''' Run the post-interview criterion evaluation and binary progression decision. '''
+''' Run post-interview criterion evaluation and binary progression decisions. '''
+
 import logging, threading
 
 from django.db import close_old_connections
@@ -21,11 +22,11 @@ def evaluate_interview(interview_id):
         close_old_connections()
         return False
 
-    interview.status = 'evaluating'
-    interview.save(update_fields=['status'])
     completed = False
 
     try:
+        interview.status = 'evaluating'
+        interview.save(update_fields=['status'])
         transcript = transcript_text(interview)
         job_description = get_job_description()
         questions = get_evaluation_questions()
@@ -44,12 +45,7 @@ def evaluate_interview(interview_id):
             EvaluationAnswer.objects.create(interview=interview, question_index=index, question=question, answer=answer)
             answers.append({'question': question, 'answer': answer})
 
-        synthesis = model_runtime.suite.synthesize(job_description, transcript, answers).strip()
-
-        if not synthesis:
-            return False
-
-        result = model_runtime.suite.final_choice(job_description, transcript, answers, synthesis)
+        result = model_runtime.suite.final_choice(job_description, transcript, answers)
 
         if result not in ['PROGRESS', 'NOT_PROGRESS']:
             return False
@@ -75,6 +71,7 @@ def run_evaluation(interview_id):
     except Exception as error:  # noqa: BLE001
         LOGGER.exception('Interview evaluation failed: %s', error)
         InterviewSession.objects.filter(id=interview_id).update(status='evaluation_failed')
+        model_runtime.release_interview(interview_id)
         close_old_connections()
 
 def start_evaluation(interview_id):

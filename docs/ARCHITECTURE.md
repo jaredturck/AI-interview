@@ -1,54 +1,67 @@
 # Architecture
 
-## Browser to backend
+## Browser and accounts
 
-React captures candidate microphone audio with `MediaRecorder` and sends ordered audio chunks over the interview WebSocket. Django decodes the completed utterance to 16 kHz mono PCM with ffmpeg and sends it to Qwen3-ASR.
+React is the candidate-facing application. Django provides account/session APIs, interview persistence, WebSocket orchestration and Django admin.
 
-Typed candidate messages enter the same interview pipeline after skipping ASR.
+Candidates must be signed in before starting an interview. Django sessions authenticate both HTTP requests and Channels WebSockets. Each `InterviewSession` belongs directly to the authenticated Django user.
 
-The interviewer returns short text responses. The text is sent to the browser immediately and Qwen3-TTS produces a WAV response for playback.
+## Live interview
 
-## Live interview subsystem
+Voice answers are recorded as one browser utterance and sent as a binary WebSocket frame. Django uses ffmpeg to decode the recording to 16 kHz mono PCM before Qwen3-ASR transcribes it. Typed answers skip ASR and enter the same text pipeline.
 
-The live subsystem contains:
-
-- `Qwen/Qwen3-ASR-1.7B` for speech recognition through Hugging Face Transformers.
-- `Qwen/Qwen3.5-9B` for the short adaptive interviewer with thinking disabled.
-- `Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice` for interviewer speech.
-- `Qwen/Qwen3Guard-Gen-4B` for immediate content safety.
-- `Qwen/Qwen3.5-4B` for transcript-level misuse monitoring with thinking disabled.
-
-The job description guides the interviewer but does not define a rigid question sequence. Company questions can retrieve a few relevant paragraphs from `config/company/`.
-
-## Transcript
-
-Each confirmed candidate or interviewer message is stored as one ordered text turn. Speech and typed input become the same text evidence after transcription/confirmation.
-
-The application does not create hidden candidate personality or disability profiles.
-
-## Final evaluation subsystem
-
-When the interview ends, the live models are unloaded and `Qwen/Qwen3.6-27B` is loaded in INT8 across both GPUs.
-
-Each line in `config/evaluation_questions.txt` receives its own reasoning pass with the complete job description and transcript. Those assessments are then synthesized. A final dedicated reasoning pass considers the whole record before a constrained decoding pass returns exactly `PROGRESS` or `NOT_PROGRESS`.
-
-The evaluation model is the only subsystem that decides progression.
-
-## Configuration
-
-Role and company content is file-backed:
+The live pipeline is:
 
 ```text
-config/job_description.md
-config/evaluation_questions.txt
-config/company/*.md
+candidate text
+    -> Qwen3Guard input safety
+    -> Qwen3.5-4B accumulated misuse classification
+    -> Qwen3.5-9B adaptive interviewer
+    -> Qwen3Guard output safety
+    -> text response + Qwen3-TTS WAV audio
 ```
 
-Runtime interview state is database-backed:
+The job description guides the interviewer but is not a fixed interview script.
+
+Every confirmed candidate/interviewer message is stored as an ordered text turn. Raw microphone audio is processed in memory and is not stored by the application.
+
+## Interview completion
+
+The interview ends when:
+
+- the candidate chooses to end it;
+- the 30-minute interview limit is reached; or
+- the separate misuse monitor identifies sustained clear misuse strongly enough to terminate the live conversation.
+
+There are no arbitrary question-count or turn-count termination rules.
+
+Network disconnection does not fail or automatically evaluate the candidate. The worker reservation is released and the authenticated candidate can resume the active interview later.
+
+## Final evaluation
+
+After the live interview ends, the realtime models are unloaded and Qwen3.6-27B is loaded in INT8 across both RTX 3090 GPUs.
+
+Each configured evaluation question receives its own reasoning pass with the complete job description and transcript. The resulting concise criterion assessments are stored in the database.
+
+A final reasoning pass then receives the original evidence plus all criterion assessments. A final constrained decoding pass can emit only:
 
 ```text
+PROGRESS
+NOT_PROGRESS
+```
+
+Only this final subsystem makes the progression decision.
+
+## Persistence
+
+The database stores runtime data only:
+
+```text
+Django User
 InterviewSession
 ConversationTurn
 EvaluationAnswer
 HumanReviewRequest
 ```
+
+The job description, evaluator criteria and prompts remain ordinary editable project files rather than duplicated database configuration.

@@ -1,8 +1,6 @@
 ''' Coordinate exclusive GPU ownership between live interviewing and evaluation. '''
-import importlib, threading
 
-from ai_interviewer.runtime_config import RUNTIME
-from interviews.services.mock_models import MockModelSuite
+import threading
 
 class ModelRuntime:
     ''' Manage the single dual-GPU interview and evaluation worker. '''
@@ -11,29 +9,23 @@ class ModelRuntime:
         self.lock = threading.RLock()
         self.active_interview_id = None
         self.evaluating = False
-        self.connections = {}
-        self.suite = self.create_suite()
+        self._suite = None
 
-    def create_suite(self):
-        ''' Create either the lightweight mock suite or real Qwen suite. '''
-        if RUNTIME['models']['mode'] == 'mock':
-            return MockModelSuite()
+    @property
+    def suite(self):
+        ''' Return the lazily created real model suite. '''
+        if self._suite is None:
+            from interviews.services.real_models import RealModelSuite  # noqa: PLC0415
+            self._suite = RealModelSuite()
 
-        module = importlib.import_module('interviews.services.real_models')
-        return module.RealModelSuite()
+        return self._suite
 
     def reserve_interview(self, interview_id):
-        ''' Reserve the live model worker for one interview session. '''
+        ''' Reserve the live model worker for one browser connection. '''
         interview_id = str(interview_id)
 
         with self.lock:
-            if self.evaluating:
-                return False
-
-            if self.active_interview_id == interview_id:
-                return True
-
-            if self.active_interview_id:
+            if self.evaluating or self.active_interview_id:
                 return False
 
             self.active_interview_id = interview_id
@@ -46,44 +38,18 @@ class ModelRuntime:
 
         finally:
             if not loaded:
-                with self.lock:
-                    if self.active_interview_id == interview_id:
-                        self.active_interview_id = None
+                self.release_interview(interview_id)
 
         return True
 
-    def add_connection(self, interview_id):
-        ''' Record one active browser connection for an interview. '''
-        interview_id = str(interview_id)
-
-        with self.lock:
-            self.connections[interview_id] = self.connections.get(interview_id, 0) + 1
-
-    def remove_connection(self, interview_id):
-        ''' Remove one browser connection from an interview. '''
-        interview_id = str(interview_id)
-
-        with self.lock:
-            count = self.connections.get(interview_id, 0) - 1
-
-            if count > 0:
-                self.connections[interview_id] = count
-            else:
-                self.connections.pop(interview_id, None)
-
-    def has_connection(self, interview_id):
-        ''' Return whether an interview still has a connected browser. '''
-        with self.lock:
-            return self.connections.get(str(interview_id), 0) > 0
-
     def release_interview(self, interview_id):
-        ''' Release a live interview reservation without unloading models. '''
+        ''' Release a disconnected live interview reservation. '''
         with self.lock:
             if self.active_interview_id == str(interview_id):
                 self.active_interview_id = None
 
     def begin_evaluation(self, interview_id):
-        ''' Atomically hand the worker from an interview to the evaluator. '''
+        ''' Atomically hand the GPU worker from an interview to the evaluator. '''
         interview_id = str(interview_id)
 
         with self.lock:
@@ -110,22 +76,14 @@ class ModelRuntime:
         return True
 
     def finish_evaluation(self):
-        ''' Return the GPU worker to live interview mode after evaluation. '''
+        ''' Release the evaluator and return the worker to an idle state. '''
         self.suite.unload_evaluator()
-        loaded = False
 
-        try:
-            self.suite.load_live()
-            loaded = True
-
-        finally:
-            with self.lock:
-                self.evaluating = False
-
-        return loaded
+        with self.lock:
+            self.evaluating = False
 
     def capacity_available(self):
-        ''' Return whether a new interview can reserve the worker. '''
+        ''' Return whether a new interview can reserve the GPU worker. '''
         with self.lock:
             return not self.evaluating and self.active_interview_id is None
 

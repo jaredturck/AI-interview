@@ -3,53 +3,72 @@
 import json
 
 import pytest
+from django.contrib.auth import get_user_model
 from django.test import Client
 
 from interviews.models import InterviewSession
-from interviews.services.runtime import model_runtime
 
-@pytest.fixture(autouse=True)
-def reset_runtime():
-    ''' Reset process-wide mock worker ownership around each test. '''
-    model_runtime.active_interview_id = None
-    model_runtime.evaluating = False
-    model_runtime.connections = {}
-    yield
-    model_runtime.active_interview_id = None
-    model_runtime.evaluating = False
-    model_runtime.connections = {}
+User = get_user_model()
+
+def create_user(email='candidate@example.com', password='A-strong-test-password-42'):
+    ''' Create one candidate test account. '''
+    return User.objects.create_user(username=email, email=email, password=password)
 
 @pytest.mark.django_db
-def test_start_and_status():
-    ''' Start an interview directly from file-backed role configuration. '''
+def test_signup_creates_authenticated_candidate():
+    ''' Create a candidate account and authenticated session. '''
     client = Client()
-    response = client.post('/api/interviews/start/', data=json.dumps({'language': 'English'}), content_type='application/json')
+    response = client.post('/api/auth/signup/', data=json.dumps({'email': 'candidate@example.com', 'password': 'A-strong-test-password-42'}),
+        content_type='application/json')
     assert response.status_code == 201
-    data = response.json()
+    assert response.json()['authenticated'] is True
+    assert User.objects.filter(username='candidate@example.com').exists()
 
-    status = client.get(f'/api/interviews/{data["interview_id"]}/status/', HTTP_X_INTERVIEW_TOKEN=data['access_token'])
+@pytest.mark.django_db
+def test_interview_requires_authentication():
+    ''' Prevent anonymous candidates from starting interviews. '''
+    client = Client()
+    response = client.post('/api/interviews/start/', data='{}', content_type='application/json')
+    assert response.status_code == 401
+
+@pytest.mark.django_db
+def test_start_and_status_are_owned_by_account():
+    ''' Start an interview and keep its status private to its owner. '''
+    owner = create_user()
+    other = create_user('other@example.com')
+    client = Client()
+    client.force_login(owner)
+    response = client.post('/api/interviews/start/', data=json.dumps({'confirm_transcript': True}), content_type='application/json')
+    assert response.status_code == 201
+    interview_id = response.json()['interview_id']
+
+    status = client.get(f'/api/interviews/{interview_id}/status/')
     assert status.status_code == 200
     assert status.json()['status'] == 'created'
 
-@pytest.mark.django_db
-def test_review_request_after_evaluation():
-    ''' Accept a candidate review request with the matching session token. '''
-    client = Client()
-    response = client.post('/api/interviews/start/', data=json.dumps({'language': 'English'}), content_type='application/json')
-    data = response.json()
-    InterviewSession.objects.filter(id=data['interview_id']).update(status='evaluated', result='NOT_PROGRESS')
-    review_data = {'name': 'Candidate', 'email': 'candidate@example.com', 'explanation': 'The microphone failed.'}
-    review = client.post(f'/api/interviews/{data["interview_id"]}/review/', data=json.dumps(review_data), content_type='application/json',
-        HTTP_X_INTERVIEW_TOKEN=data['access_token'])
-    assert review.status_code == 201
+    client.force_login(other)
+    denied = client.get(f'/api/interviews/{interview_id}/status/')
+    assert denied.status_code == 404
 
 @pytest.mark.django_db
-def test_review_request_waits_for_automated_processing():
-    ''' Require the automated process to finish before human review can be requested. '''
+def test_account_lists_candidate_interviews():
+    ''' Return only interviews belonging to the signed-in candidate. '''
+    user = create_user()
+    InterviewSession.objects.create(user=user)
     client = Client()
-    response = client.post('/api/interviews/start/', data=json.dumps({'language': 'English'}), content_type='application/json')
-    data = response.json()
-    review_data = {'name': 'Candidate', 'email': 'candidate@example.com', 'explanation': 'I would like the interview reviewed.'}
-    review = client.post(f'/api/interviews/{data["interview_id"]}/review/', data=json.dumps(review_data), content_type='application/json',
-        HTTP_X_INTERVIEW_TOKEN=data['access_token'])
-    assert review.status_code == 409
+    client.force_login(user)
+    response = client.get('/api/account/')
+    assert response.status_code == 200
+    assert len(response.json()['interviews']) == 1
+
+@pytest.mark.django_db
+def test_review_request_after_evaluation():
+    ''' Accept one human-review request from the interview owner. '''
+    user = create_user()
+    interview = InterviewSession.objects.create(user=user, status='evaluated', result='NOT_PROGRESS')
+    client = Client()
+    client.force_login(user)
+    review = client.post(f'/api/interviews/{interview.id}/review/', data=json.dumps({'explanation': 'The microphone failed.'}),
+        content_type='application/json')
+    assert review.status_code == 201
+    assert interview.review_request.explanation == 'The microphone failed.'

@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState } from 'react';
 
 export default function InterviewControls({interview}) {
-    const [text, set_text] = useState("");
-    const busy = ["thinking", "transcribing", "speaking", "connecting", "confirming"].includes(interview.status);
+    const [text, set_text] = useState('');
+    const response_busy = ['thinking', 'transcribing', 'speaking', 'connecting'].includes(interview.status);
+    const voice_busy = response_busy || interview.status === 'confirming';
 
     function submit(event) {
         event.preventDefault();
@@ -16,15 +17,15 @@ export default function InterviewControls({interview}) {
                 <form onSubmit={submit} className="flex gap-2">
                     <label htmlFor="typed-response" className="sr-only">Type a response</label>
                     <textarea id="typed-response" value={text} onChange={(event) => set_text(event.target.value)} placeholder="Type a response…" rows="2" className="min-h-12 flex-1 resize-none rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white placeholder:text-slate-500" />
-                    <button disabled={!text.trim() || busy} className="min-h-12 rounded-xl bg-blue-500 px-5 font-semibold text-white hover:bg-blue-400 disabled:opacity-40">Send</button>
+                    <button disabled={!text.trim() || response_busy} className="min-h-12 rounded-xl bg-blue-500 px-5 font-semibold text-white hover:bg-blue-400 disabled:opacity-40">Send</button>
                 </form>
 
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <button disabled={busy && !interview.is_recording} onClick={interview.is_recording ? interview.stop_recording : interview.start_recording} className={`min-h-11 rounded-xl px-4 font-semibold ${interview.is_recording ? "bg-red-500 text-white" : "border border-slate-600 text-slate-100 hover:bg-white/5"}`}>
+                    <button disabled={voice_busy && !interview.is_recording} onClick={interview.is_recording ? interview.stop_recording : interview.start_recording} className={`min-h-11 rounded-xl px-4 font-semibold ${interview.is_recording ? 'bg-red-500 text-white' : 'border border-slate-600 text-slate-100 hover:bg-white/5'}`}>
                         {interview.is_recording ? "Finish speaking" : "Speak"}
                     </button>
                     <button type="button" onClick={interview.replay} className="min-h-11 rounded-xl border border-slate-700 px-4 text-slate-200 hover:bg-white/5">Replay question</button>
-                    <button type="button" disabled={busy} onClick={interview.rephrase} className="min-h-11 rounded-xl border border-slate-700 px-4 text-slate-200 hover:bg-white/5 disabled:opacity-40">Rephrase question</button>
+                    <button type="button" disabled={voice_busy} onClick={interview.rephrase} className="min-h-11 rounded-xl border border-slate-700 px-4 text-slate-200 hover:bg-white/5 disabled:opacity-40">Rephrase question</button>
                     <button type="button" onClick={interview.need_moment} className="min-h-11 rounded-xl border border-slate-700 px-4 text-slate-200 hover:bg-white/5">I need a moment</button>
                     <button type="button" onClick={() => interview.set_voice_enabled(!interview.voice_enabled)} className="min-h-11 rounded-xl border border-slate-700 px-4 text-slate-200 hover:bg-white/5">{interview.voice_enabled ? "Mute interviewer voice" : "Enable interviewer voice"}</button>
                     <label className="ml-auto flex min-h-11 items-center gap-2 rounded-xl border border-slate-700 px-3 text-sm text-slate-300">

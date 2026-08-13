@@ -1,10 +1,10 @@
 # Adaptive AI Interviewer
 
-A first-stage technical interview application built with React, Tailwind CSS, Django, Channels and local Qwen models.
+A first-stage technical interview application built with React, Tailwind CSS, Django, Channels and a fixed local Qwen model stack.
 
-The application separates live interviewing, safety/misuse monitoring and final candidate evaluation so each model has one focused responsibility.
+The project is intentionally purpose-built rather than configurable as a generic model platform. The live interviewer gathers technical evidence, the safety subsystem protects the conversation, and the final evaluator makes the binary stage-one progression decision.
 
-## Architecture
+## Core flow
 
 ```text
 Candidate browser
@@ -13,56 +13,54 @@ Candidate browser
     v
 React + Tailwind
     |
-    | WebSocket / HTTP
+    | HTTP + authenticated WebSocket
     v
 Django + Channels
     |
-    +-- Qwen3-ASR-1.7B             speech -> text
-    +-- Qwen3.5-9B                 realtime interviewer
-    +-- Qwen3-TTS-0.6B             text -> speech
-    +-- Qwen3Guard-Gen-4B          immediate content safety
-    +-- Qwen3.5-4B                 accumulated misuse monitoring
+    +-- Qwen3-ASR-1.7B-hf        speech -> text
+    +-- Qwen3.5-9B               adaptive interviewer
+    +-- Qwen3-TTS-0.6B           text -> speech
+    +-- Qwen3Guard-Gen-4B        immediate content safety
+    +-- Qwen3.5-4B               accumulated misuse monitoring
     |
     v
-Interview transcript
+Stored text transcript
     |
-    | live models unload after interview
+    | live models unload after the interview
     v
 Qwen3.6-27B INT8
     |
-    +-- one reasoning pass per evaluation question
-    +-- synthesis reasoning pass
-    +-- final decision reasoning pass
+    +-- one deep reasoning pass per evaluation criterion
+    +-- one final reasoning pass across the whole assessment
     +-- constrained PROGRESS / NOT_PROGRESS output
 ```
 
-The job description, evaluator questions, company knowledge and prompts are ordinary project files. They are not copied into the database.
+The job description and evaluation questions are ordinary files under `config/`. Prompts live under `prompts/`. RAG/company knowledge is deliberately not implemented in this version; it is listed in `TODO.md` for a separate design pass.
 
 ## Project structure
 
 ```text
 backend/                    Django application
-config/                     Editable role, company and runtime configuration
-config/company/             Company RAG documents
-docs/                       Technical documentation
+config/                     Job description and evaluator criteria
+docs/                       Architecture, security, performance and testing notes
 frontend/                   React application source
-prompts/                    AI system prompts
-package.json                Root Node entry point
-requirements.txt            All normal Python dependencies
-vite.config.js              Root Vite/Tailwind configuration
+prompts/                    AI prompts
+package.json                Root Node development/build/test interface
+requirements.txt            Python dependencies
+vite.config.js              Vite/Tailwind configuration
 ```
 
-The database stores only runtime application data such as interview sessions, transcript turns, criterion assessments, results and candidate review requests.
+The SQLite database stores runtime application data: accounts, interview sessions, transcript turns, criterion assessments, outcomes and candidate-requested human reviews.
 
 ## Requirements
 
 - Python 3.12+
 - Node.js and npm
 - ffmpeg
-- NVIDIA CUDA/PyTorch support for real-model mode
-- Two RTX 3090 GPUs are the target real-model configuration
+- NVIDIA CUDA/PyTorch support
+- two RTX 3090 GPUs for the intended real-model deployment
 
-On Arch Linux, install the audio system tools if needed:
+On Arch Linux:
 
 ```bash
 sudo pacman -S ffmpeg sox
@@ -70,73 +68,57 @@ sudo pacman -S ffmpeg sox
 
 ## Python setup
 
-Create and activate the virtual environment from the project root:
+From the repository root:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-```
-
-Install the Python dependencies:
-
-```bash
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### Qwen speech package compatibility
-
-The agreed ASR and TTS models currently publish conflicting exact Transformers pins: `qwen-asr` 0.0.6 requires Transformers 4.57.6, while `qwen-tts` 0.1.1 declares Transformers 4.57.3. The Qwen ASR package uses Hugging Face Transformers as its backend and is retained here because it lets the complete Qwen stack stay on the compatible Transformers 4.57.x line.
-
-`requirements.txt` installs Qwen3-ASR and Transformers 4.57.6. Install Qwen3-TTS afterwards without dependency resolution so pip does not downgrade Transformers:
+Qwen3-TTS currently publishes an exact Transformers 4.57.3 dependency, while native Hugging Face support for `Qwen/Qwen3-ASR-1.7B-hf` requires Transformers 5.13+. The application keeps the agreed Qwen models and uses the native Hugging Face ASR checkpoint, so install Qwen TTS without letting its package metadata downgrade Transformers:
 
 ```bash
-pip install --no-deps qwen-tts==0.1.1
+pip install --no-deps qwen-tts
 ```
 
-This is the only model-specific installation exception. It keeps the agreed Qwen models unchanged while avoiding the current upstream metadata conflict.
+The direct runtime dependencies needed by Qwen TTS are already present in `requirements.txt`. This compatibility workaround should be rechecked whenever Qwen publishes a newer TTS package.
 
 ## Frontend setup
-
-Install the root Node dependencies:
 
 ```bash
 npm install
 ```
 
-There is no separate `frontend/package.json`.
+There is one root `package.json`; the frontend does not have a separate package file.
 
 ## Database setup
 
-Run normal Django migrations directly when required:
+Run Django migrations normally:
 
 ```bash
 python backend/manage.py migrate
 ```
 
-For schema development, use Django normally:
+To create an admin account:
 
 ```bash
-python backend/manage.py makemigrations
-python backend/manage.py migrate
+python backend/manage.py createsuperuser
 ```
 
-There are no custom seed/evaluate/interview management commands. Interviewing and evaluation are part of the normal web application flow.
+The Django admin is available at `/admin/` through the backend server.
 
 ## Run the application
-
-Development uses one command from the project root:
 
 ```bash
 npm run dev
 ```
 
-The root command uses `./.venv/bin/python` for Django, so the virtual environment does not need to be activated again just to start the application.
+This starts Django and Vite together:
 
-This starts:
-
-- Django on `http://127.0.0.1:8000`
-- Vite on `http://127.0.0.1:5173`
+- Django: `http://127.0.0.1:8000`
+- React/Vite: `http://127.0.0.1:5173`
 
 Open:
 
@@ -144,11 +126,9 @@ Open:
 http://127.0.0.1:5173
 ```
 
-Vite proxies `/api` and `/ws` to Django, so the browser interacts with the project as one application.
+Vite proxies `/api` and `/ws` to Django. Candidates create an account, sign in, and conduct the complete interview through the browser.
 
 ## Build
-
-Build the React frontend from the project root:
 
 ```bash
 npm run build
@@ -158,84 +138,67 @@ The production frontend bundle is written to `frontend/dist/`.
 
 ## Tests
 
-Run the project checks with:
-
 ```bash
 npm test
 ```
 
-This runs Django checks, the Python test suite and a production Vite build.
-
-## Runtime configuration
-
-The checked-in development defaults live in:
-
-```text
-config/runtime.example.toml
-```
-
-For local changes create:
-
-```text
-config/runtime.toml
-```
-
-`runtime.toml` is ignored by Git and overrides the example automatically.
-
-The project defaults to mock models so the full web flow can be tested without downloading model weights:
-
-```toml
-[models]
-mode = "mock"
-```
-
-For real inference change it to:
-
-```toml
-[models]
-mode = "real"
-```
+This runs Django checks, the Python test suite and a production Vite build. Tests inject deterministic fake model objects directly; production code has no mock-model mode.
 
 ## Editable interview content
 
-Change the role without touching Python code:
+Change the role and final evaluation rubric without changing Python code:
 
 ```text
 config/job_description.md
 config/evaluation_questions.txt
 ```
 
-Company RAG knowledge lives in:
-
-```text
-config/company/*.md
-```
-
-The application reads these files directly.
-
-AI prompts live in:
+Prompts:
 
 ```text
 prompts/interviewer.txt
 prompts/misuse.txt
 prompts/evaluator_question.txt
-prompts/evaluator_synthesis.txt
 prompts/final_choice.txt
 prompts/final_output.txt
 ```
 
+## Candidate accounts
+
+Candidates must create an account before starting an interview. Django's normal authentication/session system is used for HTTP and WebSocket ownership. Each interview belongs to its authenticated account and appears on the candidate account page.
+
+After an automated outcome, the candidate can request human review through the application. Django admin provides internal access to interview sessions, transcripts, criterion evaluations and review requests.
+
 ## Accessibility
 
-The candidate can answer by microphone or by typing and can switch between them during the same interview. Interviewer responses are available as both text and speech.
+Candidates can answer by voice, typing, or switch between the two. Interviewer responses are presented as both text and speech.
 
-The UI also provides transcript display, optional speech-transcription confirmation, replay, question rephrasing, extra thinking time, interviewer voice muting, speech-speed control, keyboard operation and screen-reader-friendly status updates.
+The interface also provides:
 
-See `docs/ACCESSIBILITY.md` for the design details.
+- visible transcript/captions;
+- optional ASR transcript confirmation and correction;
+- replay and rephrase controls;
+- an `I need a moment` control;
+- interviewer voice mute;
+- adjustable speech playback speed;
+- keyboard-operable controls;
+- screen-reader status announcements;
+- reduced-motion support.
+
+See `docs/ACCESSIBILITY.md`.
 
 ## Model lifecycle
 
-In real mode the live interview models remain loaded while an interview is active. Once the interview finishes, the live suite is unloaded and Qwen3.6-27B is loaded in INT8 across both GPUs for extended reasoning.
+The live stack is lazy-loaded on the first interview and stays resident while the system is interviewing. A normal disconnected-but-unfinished interview releases the worker but leaves the live weights resident for fast reuse.
 
-After evaluation, the evaluator unloads and the live models are restored for the next interview.
+Once an interview finishes, the evaluator atomically takes ownership of the dual-GPU worker, unloads the live models and loads Qwen3.6-27B in INT8 across both GPUs. After evaluation, the evaluator unloads and the worker returns to idle.
 
-See `docs/MODELS.md` and `docs/ARCHITECTURE.md` for details.
+One dual-3090 host supports one live interview or one final evaluation at a time in this V1 architecture.
+
+See `docs/MODELS.md`, `docs/ARCHITECTURE.md` and `docs/PERFORMANCE.md`.
+
+## Production notes
+
+The checked-in Django settings are development defaults. Production deployment requires a strong `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=false`, production hosts/origins, TLS, a production ASGI server, rate limiting at the deployment boundary, and an explicit privacy/retention policy for candidate data.
+
+See `docs/DEPLOYMENT.md` and `docs/SECURITY.md`.

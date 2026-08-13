@@ -1,38 +1,30 @@
 # Models
 
-## Realtime models
+The model stack is fixed in `backend/interviews/services/real_models.py`. Model IDs, placement and precision are implementation choices rather than runtime configuration.
 
-| Purpose | Model | Target | Precision |
+| Purpose | Model | GPU | Precision |
 | --- | --- | --- | --- |
-| Speech recognition | Qwen/Qwen3-ASR-1.7B | cuda:1 | BF16 |
-| Interviewer | Qwen/Qwen3.5-9B | cuda:0 | INT8 |
-| Text-to-speech | Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice | cuda:0 | BF16 |
-| Content safety | Qwen/Qwen3Guard-Gen-4B | cuda:1 | INT8 |
-| Misuse monitoring | Qwen/Qwen3.5-4B | cuda:1 | INT8 |
+| Speech recognition | `Qwen/Qwen3-ASR-1.7B-hf` | cuda:1 | BF16 |
+| Interviewer | `Qwen/Qwen3.5-9B` | cuda:0 | INT8 |
+| Text-to-speech | `Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice` | cuda:0 | BF16 |
+| Content safety | `Qwen/Qwen3Guard-Gen-4B` | cuda:1 | INT8 |
+| Misuse monitoring | `Qwen/Qwen3.5-4B` | cuda:1 | INT8 |
+| Final evaluator | `Qwen/Qwen3.6-27B` | cuda:0 + cuda:1 | INT8 |
 
-The interviewer and misuse model run with thinking disabled to keep realtime latency low.
-
-Qwen3-ASR uses Qwen's official `qwen-asr` package with its Hugging Face Transformers backend. Qwen3-TTS uses Qwen's official `qwen-tts` wrapper.
-
-## Final evaluator
-
-`Qwen/Qwen3.6-27B` runs in INT8 with thinking enabled after the live interview has finished. The evaluator receives both RTX 3090 GPUs.
-
-Evaluation is deliberately multi-pass:
-
-1. one extended reasoning pass for every configured evaluation question;
-2. one synthesis pass across the criterion assessments;
-3. one fresh final-decision reasoning pass;
-4. one constrained decoding pass returning `PROGRESS` or `NOT_PROGRESS`.
-
-The constrained output prevents application logic from depending on free-form parsing.
+The interviewer and misuse monitor run without extended thinking. Qwen3.6-27B uses thinking for each criterion assessment and for the final synthesis decision.
 
 ## Loading lifecycle
 
-Mock mode loads no real weights.
+Heavy model imports and allocations are lazy so normal Django startup, migrations, admin pages and application tests do not allocate GPU models.
 
-Real mode loads the live suite before the interview worker is used. When evaluation begins the live suite is released before the 27B evaluator is loaded. The live suite is restored after evaluation finishes.
+The first live interview loads the ASR, interviewer, TTS, guard and misuse models. They remain resident after an unfinished network disconnect so a later interview or resumed interview does not have to reload them.
 
-## Qwen speech dependency compatibility
+Final evaluation unloads the live stack and gives both GPUs to Qwen3.6-27B. After evaluation, the evaluator is unloaded and the runtime returns to idle. Live models are not eagerly reloaded until another interview needs them.
 
-`qwen-asr` 0.0.6 pins Transformers 4.57.6 and `qwen-tts` 0.1.1 pins Transformers 4.57.3. The project uses Transformers 4.57.6 because the ASR package and the Qwen3.5/Qwen3.6 model family run on that Transformers generation. Install `qwen-tts==0.1.1` with `--no-deps` after the root requirements so its narrower package metadata does not downgrade the shared runtime.
+## Speech dependency compatibility
+
+Native Hugging Face support for `Qwen/Qwen3-ASR-1.7B-hf` starts with Transformers 5.13. The current Qwen3-TTS package declares an exact Transformers 4.57.3 dependency in its package metadata.
+
+The project therefore uses Transformers 5.13+ for the native ASR and text-model runtime and installs `qwen-tts` with `--no-deps`. Its required direct runtime packages are included in the root `requirements.txt`.
+
+This is an upstream packaging compatibility issue rather than application configurability. Validate the real TTS import/inference path on the target machine and recheck the workaround when Qwen publishes a newer TTS package.

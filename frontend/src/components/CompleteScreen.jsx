@@ -1,9 +1,9 @@
-import ReviewForm from "./ReviewForm";
+import ReviewForm from './ReviewForm';
 
-export default function CompleteScreen({interview}) {
+export default function CompleteScreen({interview, on_account}) {
     const evaluated = Boolean(interview.result);
-    const progressed = interview.result === "PROGRESS";
-    const evaluation_failed = interview.status === "evaluation_failed";
+    const progressed = interview.result === 'PROGRESS';
+    const evaluation_failed = interview.status === 'evaluation_failed';
 
     return (
         <main className="mx-auto flex min-h-screen max-w-2xl items-center px-4 py-10 text-white">
@@ -16,7 +16,8 @@ export default function CompleteScreen({interview}) {
                     {evaluated && progressed && <p className="mt-3 leading-7 text-slate-300">The stage-one assessment recommends progressing your application to a human interview.</p>}
                     {evaluated && !progressed && <p className="mt-3 leading-7 text-slate-300">The stage-one assessment does not recommend progressing this application to the next interview.</p>}
                 </div>
-                {(evaluated || evaluation_failed) && <ReviewForm session={interview.session} />}
+                {(evaluated || evaluation_failed) && <ReviewForm session={interview.session} already_submitted={interview.review_requested} />}
+                <button type="button" onClick={on_account} className="mt-6 min-h-11 rounded-xl border border-slate-600 px-4 font-medium text-slate-100 hover:bg-white/5">Return to account</button>
             </section>
         </main>
     );

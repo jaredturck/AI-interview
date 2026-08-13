@@ -2,16 +2,16 @@ Django
 channels
 daphne
 numpy
-rank-bm25
 pytest
 pytest-django
 pytest-asyncio
 torch
-transformers==4.57.6
-accelerate==1.12.0
+transformers>=5.13
+accelerate
 bitsandbytes
-qwen-asr==0.0.6
 soundfile
+
+# Qwen3-TTS runtime dependencies. qwen-tts itself is installed with --no-deps because its current package metadata pins an older Transformers release.
 librosa
 torchaudio
 onnxruntime

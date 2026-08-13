@@ -1,31 +1,48 @@
 # Security
 
-## Session access
+## Candidate authentication and ownership
 
-Each interview receives a random browser access token. Only its SHA-256 hash is stored. Status and review endpoints require the matching token.
+Candidates use Django's built-in password hashing and server-side session framework. Interviews are linked directly to the authenticated Django user.
 
-WebSockets are checked against Django's allowed-host origin policy before interview authentication.
+All interview start, status and review APIs require authentication and enforce interview ownership. Channels uses `AuthMiddlewareStack`, and every WebSocket verifies that the requested interview belongs to `scope['user']`.
+
+Django CSRF middleware protects state-changing HTTP requests. WebSockets are wrapped in `AllowedHostsOriginValidator` to prevent cross-origin use of an authenticated session.
 
 ## AI safety
 
-Candidate input is checked by Qwen3Guard before the interviewer responds. Generated interviewer text is checked again before speech synthesis.
+Candidate text is checked by Qwen3Guard before the interviewer responds. Generated interviewer text is checked again before TTS.
 
-The separate misuse model watches the accumulated transcript for sustained abuse of the interview process. It can request a redirect or end the live interview, but it cannot decide whether the candidate progresses.
+A separate transcript-level misuse model can return `CONTINUE`, `REDIRECT` or `TERMINATE`. It can end the live conversation but cannot produce the hiring outcome.
 
-Transcript content is always treated as untrusted candidate content by the final evaluator rather than as model instructions.
+Evaluator prompts explicitly treat transcript instructions as untrusted candidate content. Raw model thinking is not exposed through HTTP/WebSocket APIs and is not stored as candidate-facing output.
 
-## Resource limits
+## Resource protection
 
-The backend limits text size, uploaded audio bytes, total interview duration and concurrent ownership of the single dual-GPU worker.
+- candidate text is capped before storage and inference;
+- WebSocket audio is capped at 20 MB per utterance;
+- ffmpeg decoding is capped to 10 minutes of decoded audio and a 60-second subprocess timeout;
+- the interview has a 30-minute total limit;
+- one live interview or evaluator owns the dual-GPU worker at a time;
+- TTS audio uses binary WebSocket frames instead of base64 JSON.
 
-Disconnected interviews receive a short reconnect window before the backend closes and evaluates the session.
+## Failure handling
 
-## Candidate decisions
+A model/infrastructure failure does not invent a candidate outcome. Failed final inference uses `evaluation_failed`, after which the candidate can request human review.
 
-Only the final evaluator returns `PROGRESS` or `NOT_PROGRESS`. Infrastructure failure uses the separate operational status `evaluation_failed` rather than fabricating a candidate outcome.
+If the Django process dies while a background evaluation is running, the in-memory evaluation job cannot survive the restart. The next account/status access detects a stale `evaluating` record and changes it to `evaluation_failed` rather than leaving the candidate permanently stuck.
 
-Candidates can submit a human-review request through the website after automated processing.
+Completed WebSockets retain the model reservation until the evaluator thread takes ownership. Ordinary unfinished disconnects release the live reservation immediately. This prevents another interview from racing the evaluator during the live-to-final model handoff.
 
-## Production configuration
+## Production requirements
 
-Create `config/runtime.toml` with a production secret key, production hosts/origins and `debug = false`. Serve Django and the built frontend behind TLS and a production ASGI deployment rather than Django's development server.
+Before public deployment:
+
+- use TLS;
+- use a strong `DJANGO_SECRET_KEY`;
+- set `DJANGO_DEBUG=false`;
+- configure production allowed hosts and CSRF trusted origins;
+- run a production ASGI server behind a reverse proxy;
+- rate-limit signup/login and other abuse-prone endpoints at the deployment boundary;
+- define transcript/account/evaluation data retention and deletion policies;
+- keep operating-system, CUDA, PyTorch and Python dependencies patched;
+- review candidate-facing privacy and automated-decision notices with appropriate legal/data-protection specialists.

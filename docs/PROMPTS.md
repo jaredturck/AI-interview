@@ -1,21 +1,23 @@
 # Prompts
 
-Prompts are deliberately stored as short editable text files under `prompts/`.
+Prompts are deliberately short and stored under `prompts/`.
 
-## Realtime interviewer
+## `interviewer.txt`
 
-`interviewer.txt` defines the live model as a brief, adaptive evidence-gathering technical interviewer. The job description is appended at runtime from `config/job_description.md`.
+Defines the realtime model as a friendly, adaptive technical interviewer whose job is to gather useful evidence. The job description is appended by the application. It intentionally contains no example interview questions so the small realtime model is not anchored to specific technologies or wording.
 
-The prompt intentionally avoids example interview questions so a small model is not unnecessarily anchored to particular technologies or wording.
+## `misuse.txt`
 
-## Misuse monitor
+Asks the separate misuse model to choose `CONTINUE`, `REDIRECT` or `TERMINATE`. It is intentionally forgiving of isolated unusual behavior and only terminates sustained clear misuse.
 
-`misuse.txt` asks the separate misuse model to choose `CONTINUE`, `REDIRECT` or `TERMINATE`. The monitor is intentionally forgiving of isolated unusual behaviour and only terminates sustained clear misuse.
+## `evaluator_question.txt`
 
-## Evaluator
+Used independently for every line in `config/evaluation_questions.txt`. Each call focuses the evaluator's reasoning on one criterion while retaining the complete job description and transcript.
 
-`evaluator_question.txt` is used independently for every line in `config/evaluation_questions.txt`.
+## `final_choice.txt`
 
-`evaluator_synthesis.txt` combines those focused assessments.
+Runs one final reasoning pass over the original evidence and all completed criterion assessments.
 
-`final_choice.txt` drives a final thinking pass over the complete evidence. `final_output.txt` is used only for the constrained application-facing `PROGRESS` or `NOT_PROGRESS` decision.
+## `final_output.txt`
+
+Used only for the mechanically constrained application-facing `PROGRESS` or `NOT_PROGRESS` output.

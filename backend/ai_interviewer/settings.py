@@ -1,20 +1,19 @@
-''' Django settings for the interview application. '''
+''' Django settings for the AI interview application. '''
 
+import os
 from pathlib import Path
-
-from ai_interviewer.runtime_config import RUNTIME
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = BASE_DIR.parent
 
-DEBUG = RUNTIME['django']['debug']
-SECRET_KEY = RUNTIME['django']['secret_key']
-ALLOWED_HOSTS = RUNTIME['django']['allowed_hosts']
-CSRF_TRUSTED_ORIGINS = RUNTIME['django']['csrf_trusted_origins']
+DEBUG = os.environ.get('DJANGO_DEBUG', 'true').lower() == 'true'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'development-only-secret-key')
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+CSRF_TRUSTED_ORIGINS = os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', 'http://127.0.0.1:5173,http://localhost:5173').split(',')
 
 INSTALLED_APPS = [
     'daphne', 'django.contrib.admin', 'django.contrib.auth', 'django.contrib.contenttypes',
-    'django.contrib.sessions', 'django.contrib.messages', 'django.contrib.staticfiles', 'channels', 'interviews'
+    'django.contrib.sessions', 'django.contrib.messages', 'django.contrib.staticfiles', 'channels', 'interviews.apps.InterviewsConfig'
 ]
 
 MIDDLEWARE = [
@@ -26,7 +25,6 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'ai_interviewer.urls'
 ASGI_APPLICATION = 'ai_interviewer.asgi.application'
-WSGI_APPLICATION = 'ai_interviewer.wsgi.application'
 
 TEMPLATES = [
     {
@@ -49,7 +47,13 @@ DATABASES = {
     }
 }
 
-AUTH_PASSWORD_VALIDATORS = []
+AUTH_PASSWORD_VALIDATORS = [
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'}
+]
+
 LANGUAGE_CODE = 'en-gb'
 TIME_ZONE = 'Europe/London'
 USE_I18N = True
@@ -57,14 +61,10 @@ USE_TZ = True
 STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer'
-    }
-}
-
 SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SAMESITE = 'Lax'
 X_FRAME_OPTIONS = 'DENY'
 SECURE_CONTENT_TYPE_NOSNIFF = True
 

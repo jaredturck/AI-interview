@@ -6,7 +6,7 @@
     "scripts": {
         "dev": "concurrently --kill-others --names backend,frontend \"./.venv/bin/python backend/manage.py runserver 127.0.0.1:8000\" \"vite\"",
         "build": "vite build",
-        "test": "./.venv/bin/python backend/manage.py check && ./.venv/bin/python -m pytest backend && npm run build"
+        "test": "./.venv/bin/python backend/manage.py check && ./.venv/bin/python backend/manage.py makemigrations --check --dry-run && ./.venv/bin/python -m pytest backend && npm run build"
     },
     "dependencies": {
         "react": "^19.2.8",
