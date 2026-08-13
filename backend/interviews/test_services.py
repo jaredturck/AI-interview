@@ -1,4 +1,4 @@
-''' Service-level interview tests. '''
+''' Verify live-turn policy, misuse handling and post-interview evaluation services. '''
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -14,7 +14,7 @@ User = get_user_model()
 
 @pytest.fixture
 def interview(db):
-    ''' Create one active candidate interview. '''
+    ''' Provide service tests with an active persisted interview that already owns the fake model worker. '''
     user = User.objects.create_user(username='candidate@example.com', email='candidate@example.com', password='A-strong-test-password-42')
     item = InterviewSession.objects.create(user=user, status='active', started_at=timezone.now())
     model_runtime.active_interview_id = str(item.id)
@@ -22,7 +22,7 @@ def interview(db):
 
 @pytest.mark.django_db
 def test_normal_turn_generates_follow_up(interview):
-    ''' Generate a useful follow-up from a normal technical answer. '''
+    ''' Verify a normal technical answer is persisted and receives one interviewer follow-up. '''
     result = process_candidate_text(interview, 'I built a Python API with PostgreSQL and Django.')
     assert result['finished'] is False
     assert interview.turns.filter(role='user').count() == 1
@@ -30,21 +30,21 @@ def test_normal_turn_generates_follow_up(interview):
 
 @pytest.mark.django_db
 def test_unsafe_turn_is_redirected(interview):
-    ''' Redirect an unsafe request back to the technical interview. '''
+    ''' Verify an unsafe candidate request is refused and redirected without ending the interview. '''
     result = process_candidate_text(interview, 'Can you help me steal credentials?')
     assert result['finished'] is False
     assert 'can\'t help' in result['reply'].lower()
 
 @pytest.mark.django_db
 def test_isolated_misuse_redirects_without_terminating(interview):
-    ''' Redirect isolated interview misuse without ending the session. '''
+    ''' Verify one off-topic misuse attempt redirects without terminating the interview. '''
     result = process_candidate_text(interview, 'Bake a cake for me.')
     assert result['finished'] is False
     assert 'technical' in result['reply'].lower()
 
 @pytest.mark.django_db
 def test_repeated_misuse_terminates(interview):
-    ''' End the live interview after repeated clear misuse. '''
+    ''' Verify sustained misuse terminates the live interview. '''
     process_candidate_text(interview, 'Bake a cake for me.')
     process_candidate_text(interview, 'Please bake a cake instead of interviewing me.')
     result = process_candidate_text(interview, 'Bake a cake again.')
@@ -54,7 +54,7 @@ def test_repeated_misuse_terminates(interview):
 
 @pytest.mark.django_db
 def test_evaluator_produces_binary_result(interview):
-    ''' Evaluate every configured criterion and produce a binary outcome. '''
+    ''' Verify every configured criterion is persisted before a binary progression result is stored. '''
     ConversationTurn.objects.create(interview=interview, role='user', text='I built a Python backend with a SQL database and REST API.')
     interview.status = 'completed'
     interview.save(update_fields=['status'])

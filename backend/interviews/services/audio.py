@@ -1,4 +1,4 @@
-''' Decode browser-recorded audio into mono PCM for speech recognition. '''
+''' Normalize browser-recorded audio into mono 16 kHz samples for Qwen3-ASR. '''
 
 import subprocess
 
@@ -8,7 +8,7 @@ MAX_AUDIO_SECONDS = 600
 FFMPEG_TIMEOUT_SECONDS = 60
 
 def decode_browser_audio(audio_bytes):
-    ''' Decode browser audio bytes into 16 kHz floating-point samples. '''
+    ''' Convert browser audio formats into the mono 16 kHz float samples expected by Qwen3-ASR. '''
     command = [
         'ffmpeg', '-nostdin', '-hide_banner', '-loglevel', 'error', '-protocol_whitelist', 'pipe', '-i', 'pipe:0',
         '-t', str(MAX_AUDIO_SECONDS),

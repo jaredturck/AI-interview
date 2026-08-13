@@ -1,4 +1,4 @@
-''' Interview application configuration. '''
+''' Configure Django startup behavior for the interviews application. '''
 
 import logging, os, sys
 
@@ -7,12 +7,12 @@ from django.apps import AppConfig
 LOGGER = logging.getLogger(__name__)
 
 class InterviewsConfig(AppConfig):
-    ''' Configure the interview Django application. '''
+    ''' Register the interviews app and its realtime Qwen preload hook with Django. '''
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'interviews'
 
     def ready(self):
-        ''' Preload realtime interview models when the Django server starts. '''
+        ''' Preload the realtime Qwen stack in the runserver child so interviews start without model-loading delay. '''
         runserver = 'runserver' in sys.argv
         server_process = os.environ.get('RUN_MAIN') == 'true' or '--noreload' in sys.argv
 

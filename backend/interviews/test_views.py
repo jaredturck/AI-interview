@@ -1,4 +1,4 @@
-''' HTTP endpoint tests. '''
+''' Verify candidate authentication, interview ownership, account history and human-review HTTP APIs. '''
 
 import json
 
@@ -11,12 +11,12 @@ from interviews.models import InterviewSession
 User = get_user_model()
 
 def create_user(email='candidate@example.com', password='A-strong-test-password-42'):
-    ''' Create one candidate test account. '''
+    ''' Create a valid email and password Django user for endpoint ownership tests. '''
     return User.objects.create_user(username=email, email=email, password=password)
 
 @pytest.mark.django_db
 def test_signup_creates_authenticated_candidate():
-    ''' Create a candidate account and authenticated session. '''
+    ''' Verify signup creates both the candidate account and authenticated Django session. '''
     client = Client()
     response = client.post('/api/auth/signup/', data=json.dumps({'email': 'candidate@example.com', 'password': 'A-strong-test-password-42'}),
         content_type='application/json')
@@ -26,14 +26,14 @@ def test_signup_creates_authenticated_candidate():
 
 @pytest.mark.django_db
 def test_interview_requires_authentication():
-    ''' Prevent anonymous candidates from starting interviews. '''
+    ''' Verify anonymous clients cannot create interview sessions. '''
     client = Client()
     response = client.post('/api/interviews/start/', data='{}', content_type='application/json')
     assert response.status_code == 401
 
 @pytest.mark.django_db
 def test_start_and_status_are_owned_by_account():
-    ''' Start an interview and keep its status private to its owner. '''
+    ''' Verify interview creation and status endpoints keep sessions private to their owning account. '''
     owner = create_user()
     other = create_user('other@example.com')
     client = Client()
@@ -52,7 +52,7 @@ def test_start_and_status_are_owned_by_account():
 
 @pytest.mark.django_db
 def test_account_lists_candidate_interviews():
-    ''' Return only interviews belonging to the signed-in candidate. '''
+    ''' Verify the account endpoint returns the signed-in candidate's interview history. '''
     user = create_user()
     InterviewSession.objects.create(user=user)
     client = Client()
@@ -63,7 +63,7 @@ def test_account_lists_candidate_interviews():
 
 @pytest.mark.django_db
 def test_review_request_after_evaluation():
-    ''' Accept one human-review request from the interview owner. '''
+    ''' Verify an evaluated candidate can submit a persisted human-review explanation. '''
     user = create_user()
     interview = InterviewSession.objects.create(user=user, status='evaluated', result='NOT_PROGRESS')
     client = Client()

@@ -1,4 +1,4 @@
-''' ASGI application entry point. '''
+''' Serve Django HTTP and authenticated interview WebSockets through one ASGI application. '''
 
 import os
 

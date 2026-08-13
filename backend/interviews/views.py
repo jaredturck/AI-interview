@@ -1,4 +1,4 @@
-''' HTTP endpoints for candidate accounts, interviews and human review requests. '''
+''' Expose session-authenticated candidate account, interview, status and human-review APIs. '''
 
 import json
 
@@ -20,7 +20,7 @@ RECRUITMENT_EMAIL = 'recruitment@example.com'
 User = get_user_model()
 
 def read_json(request):
-    ''' Decode a JSON request body or return an empty dictionary. '''
+    ''' Give API endpoints a consistent empty-payload and invalid-JSON fallback. '''
     if not request.body:
         return {}
 
@@ -31,11 +31,11 @@ def read_json(request):
         return {}
 
 def authentication_error():
-    ''' Return the standard unauthenticated API response. '''
+    ''' Keep unauthenticated API responses consistent across protected endpoints. '''
     return JsonResponse({'error': 'Authentication is required.'}, status=401)
 
 def recover_interrupted_evaluation(interview):
-    ''' Mark an evaluation interrupted by a backend restart as failed. '''
+    ''' Convert stale evaluating state left by a backend restart into explicit evaluation_failed status. '''
     if interview.status == 'evaluating' and not model_runtime.evaluating:
         interview.status = 'evaluation_failed'
         interview.save(update_fields=['status'])
@@ -43,7 +43,7 @@ def recover_interrupted_evaluation(interview):
     return interview
 
 def owned_interview(request, interview_id):
-    ''' Return an interview when it belongs to the authenticated candidate. '''
+    ''' Enforce candidate ownership when resolving interview IDs in HTTP endpoints. '''
     if not request.user.is_authenticated:
         return None
 
@@ -52,7 +52,7 @@ def owned_interview(request, interview_id):
 @ensure_csrf_cookie
 @require_GET
 def auth_status(request):
-    ''' Return the current candidate account state and establish a CSRF cookie. '''
+    ''' Tell the frontend whether the Django session is authenticated while ensuring a CSRF cookie exists. '''
     if not request.user.is_authenticated:
         return JsonResponse({'authenticated': False})
 
@@ -60,7 +60,7 @@ def auth_status(request):
 
 @require_POST
 def signup(request):
-    ''' Create a candidate account and sign it into the current session. '''
+    ''' Create an email and password Django account and immediately establish the candidate's session. '''
     data = read_json(request)
     email = User.objects.normalize_email(data.get('email', '').strip().lower())
     password = data.get('password', '')
@@ -89,7 +89,7 @@ def signup(request):
 
 @require_POST
 def login(request):
-    ''' Sign a candidate into the application with email and password. '''
+    ''' Authenticate a candidate's email and password into the Django session. '''
     data = read_json(request)
     email = User.objects.normalize_email(data.get('email', '').strip().lower())
     password = data.get('password', '')
@@ -103,13 +103,13 @@ def login(request):
 
 @require_POST
 def logout(request):
-    ''' Sign the current candidate out of the application. '''
+    ''' End the candidate Django session and report unauthenticated state. '''
     django_logout(request)
     return JsonResponse({'authenticated': False})
 
 @require_GET
 def account(request):
-    ''' Return the signed-in candidate and their interview history. '''
+    ''' Provide the account screen with candidate identity, interview history, outcomes and review status. '''
     if not request.user.is_authenticated:
         return authentication_error()
 
@@ -131,7 +131,7 @@ def account(request):
 @ensure_csrf_cookie
 @require_GET
 def bootstrap(request):
-    ''' Return stable public information required by the interview screens. '''
+    ''' Provide public interview UI metadata without requiring an authenticated session. '''
     return JsonResponse({
         'job': {'title': get_job_title()},
         'max_minutes': INTERVIEW_MAX_MINUTES,
@@ -140,7 +140,7 @@ def bootstrap(request):
 
 @require_POST
 def start_interview(request):
-    ''' Create or resume an interview for the authenticated candidate. '''
+    ''' Resume the candidate's unfinished interview or create one only when the realtime worker is available. '''
     if not request.user.is_authenticated:
         return authentication_error()
 
@@ -158,7 +158,7 @@ def start_interview(request):
 
 @require_GET
 def interview_status(request, interview_id):
-    ''' Return one candidate-owned interview and evaluation status. '''
+    ''' Provide polling and reconnect state for one candidate-owned interview and its automated outcome. '''
     interview = owned_interview(request, interview_id)
 
     if not interview:
@@ -174,7 +174,7 @@ def interview_status(request, interview_id):
 
 @require_POST
 def request_review(request, interview_id):
-    ''' Store a candidate-requested human review after automated processing. '''
+    ''' Record the candidate's explanation for human review after automated evaluation finishes or fails. '''
     interview = owned_interview(request, interview_id)
 
     if not interview:

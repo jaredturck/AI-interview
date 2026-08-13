@@ -1,4 +1,4 @@
-''' Root HTTP routes. '''
+''' Route Django admin and interview API traffic at the project boundary. '''
 
 from django.contrib import admin
 from django.urls import include, path

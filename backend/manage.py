@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-''' Django management entry point. '''
+''' Run Django management commands against the AI interview backend. '''
 
 import os
 

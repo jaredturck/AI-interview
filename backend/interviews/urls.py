@@ -1,4 +1,4 @@
-''' Interview HTTP routes. '''
+''' Map candidate account, interview, status and review API paths to Django views. '''
 
 from django.urls import path
 

@@ -1,45 +1,45 @@
-''' Shared interview test fixtures. '''
+''' Replace GPU-backed model services with deterministic fixtures across interview tests. '''
 
 import pytest
 
 from interviews.services.runtime import model_runtime
 
 class FakeModelSuite:
-    ''' Provide deterministic lightweight model behaviour for application tests. '''
+    ''' Mirror the production model-suite interface without loading Qwen checkpoints during tests. '''
     def load_live(self):
-        ''' Simulate loading the live model stack. '''
+        ''' Satisfy realtime preload calls without allocating GPU models during tests. '''
         return None
 
     def live_loaded(self):
-        ''' Report the fake realtime model stack as ready. '''
+        ''' Keep runtime capacity checks available while tests use the fake model suite. '''
         return True
 
     def load_evaluator(self):
-        ''' Simulate loading the evaluator. '''
+        ''' Satisfy evaluator handoff without loading Qwen3.6 during tests. '''
         return None
 
     def unload_evaluator(self):
-        ''' Simulate unloading the evaluator. '''
+        ''' Mirror evaluator cleanup without holding GPU model state during tests. '''
         return None
 
     def transcribe(self, audio, sample_rate):
-        ''' Return a stable test transcription. '''
+        ''' Provide predictable ASR text for tests that exercise spoken interview turns. '''
         return 'I built a Python API with PostgreSQL.'
 
     def speak(self, text):
-        ''' Return small fake WAV bytes. '''
+        ''' Provide minimal WAV-like bytes so WebSocket audio delivery can be tested without Qwen3-TTS. '''
         return b'RIFF-test-audio'
 
     def guard_user(self, text):
-        ''' Mark the test unsafe phrase as unsafe. '''
+        ''' Drive unsafe-request routing with one deterministic guard phrase while leaving other test input safe. '''
         return 'Unsafe' if 'steal credentials' in text.lower() else 'Safe'
 
     def guard_response(self, user_text, assistant_text):
-        ''' Treat generated test interviewer output as safe. '''
+        ''' Keep fake interviewer output on the normal safe-response path during tests. '''
         return 'Safe'
 
     def interviewer(self, system_prompt, turns, max_tokens=32):
-        ''' Generate deterministic interviewer text from the current test context. '''
+        ''' Drive opening, follow-up, redirect, rephrase and closing paths with deterministic interviewer text. '''
         if 'End the interview now' in system_prompt:
             return 'Thank you for your time today.'
 
@@ -58,7 +58,7 @@ class FakeModelSuite:
         return 'Tell me about a software project you have worked on.'
 
     def misuse(self, transcript):
-        ''' Escalate repeated cake requests in the test transcript. '''
+        ''' Drive redirect and termination paths from repeated cake requests in the test transcript. '''
         count = transcript.lower().count('bake a cake')
 
         if count >= 3:
@@ -70,16 +70,16 @@ class FakeModelSuite:
         return 'CONTINUE'
 
     def evaluate_question(self, job_description, transcript, question):
-        ''' Return a stable criterion assessment. '''
+        ''' Provide stable criterion evidence so evaluation persistence can be tested without Qwen3.6. '''
         return f'The transcript provides relevant evidence for: {question}'
 
     def final_choice(self, job_description, transcript, answers):
-        ''' Return a stable final test outcome. '''
+        ''' Provide a fixed PROGRESS outcome so final evaluation persistence remains deterministic in tests. '''
         return 'PROGRESS'
 
 @pytest.fixture(autouse=True)
 def fake_model_runtime():
-    ''' Replace heavy Qwen inference with a deterministic test suite. '''
+    ''' Install FakeModelSuite process-wide for each test and reset runtime ownership around it. '''
     original_suite = model_runtime._suite
     model_runtime._suite = FakeModelSuite()
     model_runtime.active_interview_id = None

@@ -1,4 +1,4 @@
-''' WebSocket interview flow tests. '''
+''' Verify authenticated Django Channels interview flow and cross-account ownership isolation. '''
 
 import pytest
 from asgiref.sync import sync_to_async
@@ -12,13 +12,13 @@ from interviews.models import InterviewSession
 User = get_user_model()
 
 def no_evaluation(interview_id):
-    ''' Replace background evaluation during WebSocket tests. '''
+    ''' Suppress background evaluation so WebSocket tests can assert the live-session handoff deterministically. '''
     return None
 
 @pytest.mark.asyncio
 @pytest.mark.django_db(transaction=True)
 async def test_typed_websocket_turn(monkeypatch):
-    ''' Complete a typed interview turn through authenticated Channels. '''
+    ''' Verify an authenticated typed interview follows the live WebSocket protocol through completion. '''
     user = await sync_to_async(User.objects.create_user)(username='candidate@example.com', email='candidate@example.com', password='A-strong-test-password-42')
     interview = await InterviewSession.objects.acreate(user=user, status='created')
     client = Client()
@@ -67,7 +67,7 @@ async def test_typed_websocket_turn(monkeypatch):
 @pytest.mark.asyncio
 @pytest.mark.django_db(transaction=True)
 async def test_websocket_rejects_another_candidate():
-    ''' Prevent one account from connecting to another candidate's interview. '''
+    ''' Verify WebSocket ownership checks reject a different candidate before connection acceptance. '''
     owner = await sync_to_async(User.objects.create_user)(username='owner@example.com', email='owner@example.com', password='A-strong-test-password-42')
     other = await sync_to_async(User.objects.create_user)(username='other@example.com', email='other@example.com', password='A-strong-test-password-42')
     interview = await InterviewSession.objects.acreate(user=owner)

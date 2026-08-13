@@ -1,4 +1,4 @@
-''' Database models for interview runtime data and evaluation results. '''
+''' Persist interview lifecycle, transcript evidence, evaluator assessments and human-review requests. '''
 
 import uuid
 
@@ -6,7 +6,7 @@ from django.conf import settings
 from django.db import models
 
 class InterviewSession(models.Model):
-    ''' Store one candidate interview session. '''
+    ''' Track one candidate interview from creation through evaluation, including transcript confirmation and final outcome. '''
     STATUS_CHOICES = [
         ('created', 'Created'),
         ('active', 'Active'),
@@ -32,11 +32,11 @@ class InterviewSession(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        ''' Return a readable interview identifier. '''
+        ''' Identify interview sessions by the candidate's email and UUID in Django admin and logs. '''
         return f'{self.user.email} - {self.id}'
 
 class ConversationTurn(models.Model):
-    ''' Store one text turn from the candidate or interviewer. '''
+    ''' Preserve candidate and interviewer text as ordered evidence for prompts, evaluation and human review. '''
     ROLE_CHOICES = [('assistant', 'Assistant'), ('user', 'User')]
 
     interview = models.ForeignKey(InterviewSession, on_delete=models.CASCADE, related_name='turns')
@@ -45,15 +45,15 @@ class ConversationTurn(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ''' Define stable transcript ordering. '''
+        ''' Keep transcript evidence in stable chronological order when timestamps match. '''
         ordering = ['created_at', 'id']
 
     def __str__(self):
-        ''' Return a short transcript preview. '''
+        ''' Make transcript records identifiable by speaker and a short text preview in admin and logs. '''
         return f'{self.role}: {self.text[:60]}'
 
 class EvaluationAnswer(models.Model):
-    ''' Store the evaluator assessment for one configured criterion. '''
+    ''' Preserve the Qwen3.6 assessment for one configured criterion as auditable evaluation evidence. '''
     interview = models.ForeignKey(InterviewSession, on_delete=models.CASCADE, related_name='evaluation_answers')
     question_index = models.PositiveIntegerField()
     question = models.TextField()
@@ -61,20 +61,20 @@ class EvaluationAnswer(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ''' Order criterion assessments and prevent duplicate positions. '''
+        ''' Keep criterion evidence in rubric order and prevent duplicate positions within an interview. '''
         ordering = ['question_index']
         constraints = [models.UniqueConstraint(fields=['interview', 'question_index'], name='unique_interview_question')]
 
     def __str__(self):
-        ''' Return a readable criterion identifier. '''
+        ''' Identify stored criterion assessments by interview and one-based rubric position in admin and logs. '''
         return f'{self.interview_id} criterion {self.question_index + 1}'
 
 class HumanReviewRequest(models.Model):
-    ''' Store a candidate request for human review. '''
+    ''' Record the candidate's explanation when asking a person to review automated interview processing. '''
     interview = models.OneToOneField(InterviewSession, on_delete=models.CASCADE, related_name='review_request')
     explanation = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        ''' Return a readable review request identifier. '''
+        ''' Identify a human-review request by its interview in admin and logs. '''
         return f'Review request for {self.interview_id}'

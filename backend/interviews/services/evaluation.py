@@ -1,4 +1,4 @@
-''' Run post-interview criterion evaluation and binary progression decisions. '''
+''' Run Qwen3.6 post-interview criterion assessment and binary stage-two progression decisions. '''
 
 import logging, threading
 
@@ -12,7 +12,7 @@ from interviews.services.transcript import transcript_text
 LOGGER = logging.getLogger(__name__)
 
 def evaluate_interview(interview_id):
-    ''' Evaluate one completed interview against every configured criterion. '''
+    ''' Run the complete Qwen3.6 evaluation pipeline and persist criterion evidence plus the binary progression outcome. '''
     close_old_connections()
     interview = InterviewSession.objects.get(id=interview_id)
 
@@ -64,7 +64,7 @@ def evaluate_interview(interview_id):
         close_old_connections()
 
 def run_evaluation(interview_id):
-    ''' Run evaluation at the background worker boundary and preserve failure state. '''
+    ''' Protect the background evaluation boundary so unexpected failures become explicit evaluation_failed state. '''
     try:
         evaluate_interview(interview_id)
 
@@ -75,7 +75,7 @@ def run_evaluation(interview_id):
         close_old_connections()
 
 def start_evaluation(interview_id):
-    ''' Start post-interview evaluation without blocking the WebSocket response. '''
+    ''' Move final evaluation off WebSocket handling so interview completion can return immediately. '''
     thread = threading.Thread(target=run_evaluation, args=(str(interview_id),), daemon=True)
     thread.start()
     return thread

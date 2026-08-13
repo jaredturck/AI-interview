@@ -1,4 +1,4 @@
-''' Django settings for the AI interview application. '''
+''' Configure Django, Channels, SQLite, sessions, CSRF and deployment security for the AI interview backend. '''
 
 import os
 from pathlib import Path

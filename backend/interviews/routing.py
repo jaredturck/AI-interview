@@ -1,4 +1,4 @@
-''' Interview WebSocket routes. '''
+''' Map authenticated interview WebSockets to the Django Channels consumer. '''
 
 from django.urls import re_path
 

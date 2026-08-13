@@ -1,4 +1,4 @@
-''' Conduct the live interview and persist its text turns. '''
+''' Apply interview policy around Qwen3.5 generation while persisting candidate and interviewer evidence. '''
 
 from datetime import timedelta
 
@@ -14,7 +14,7 @@ MAX_TEXT_CHARS = 12000
 SAFE_FALLBACK = 'I can\'t help with that request. Let\'s return to the interview. Could you tell me about the technical work you\'ve done?'
 
 def build_system_prompt(temporary_instruction=''):
-    ''' Build the live interviewer context for the current candidate turn. '''
+    ''' Combine interviewer policy and job context with any temporary instruction needed for the current turn. '''
     parts = [INTERVIEWER_PROMPT, f'Job description:\n{get_job_description()}']
 
     if temporary_instruction:
@@ -23,7 +23,7 @@ def build_system_prompt(temporary_instruction=''):
     return '\n\n'.join(parts)
 
 def generate_interviewer_reply(interview, candidate_text='', temporary_instruction='', max_tokens=32):
-    ''' Generate and safety-check one short interviewer response. '''
+    ''' Generate one Qwen3.5 interviewer turn and block unsafe output before it reaches the candidate. '''
     system_prompt = build_system_prompt(temporary_instruction)
     reply = model_runtime.suite.interviewer(system_prompt, turn_list(interview), max_tokens=max_tokens).strip()
 
@@ -34,28 +34,28 @@ def generate_interviewer_reply(interview, candidate_text='', temporary_instructi
     return SAFE_FALLBACK if response_safety == 'Unsafe' else reply
 
 def opening_message(interview):
-    ''' Generate the opening interview question. '''
+    ''' Start the adaptive interview with a Qwen3.5 question grounded in the configured job description. '''
     return generate_interviewer_reply(interview)
 
 def closing_message(interview):
-    ''' Generate a brief friendly interview closing. '''
+    ''' End the candidate-facing conversation with a short Qwen3.5 closing before final evaluation. '''
     instruction = 'End the interview now with one brief, warm closing sentence.'
     return generate_interviewer_reply(interview, temporary_instruction=instruction, max_tokens=24)
 
 def rephrase_message(interview):
-    ''' Rephrase the latest question with greater specificity and simplicity. '''
+    ''' Support accessibility by asking the current interviewer question in a simpler, narrower form. '''
     instruction = 'Rephrase the last interviewer question so it is simpler, narrower and easier to understand. Ask one question.'
     return generate_interviewer_reply(interview, temporary_instruction=instruction, max_tokens=32)
 
 def interview_timed_out(interview):
-    ''' Return whether the interview time limit has elapsed. '''
+    ''' Enforce the 30-minute interview limit across live and resumed sessions. '''
     if not interview.started_at:
         return False
 
     return timezone.now() >= interview.started_at + timedelta(minutes=INTERVIEW_MAX_MINUTES)
 
 def finish_interview(interview, status='completed'):
-    ''' Mark an active interview as finished. '''
+    ''' Persist a terminal interview status and end time without overwriting an already-finished session. '''
     if interview.status in ['completed', 'terminated', 'evaluating', 'evaluated', 'evaluation_failed']:
         return
 
@@ -64,11 +64,11 @@ def finish_interview(interview, status='completed'):
     interview.save(update_fields=['status', 'ended_at'])
 
 def add_turn(interview, role, text):
-    ''' Append one normalized text turn to the interview transcript. '''
+    ''' Persist normalized candidate or interviewer text as evidence for later prompts and evaluation. '''
     return ConversationTurn.objects.create(interview=interview, role=role, text=text.strip())
 
 def process_candidate_text(interview, text):
-    ''' Process one candidate turn through safety, misuse and interviewer models. '''
+    ''' Apply timeout, safety, misuse and Qwen3.5 interviewer policy to one persisted candidate turn. '''
     text = text.strip()[:MAX_TEXT_CHARS]
 
     if not text:

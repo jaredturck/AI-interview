@@ -1,4 +1,4 @@
-''' Realtime interview WebSocket handling. '''
+''' Bridge authenticated browser interview traffic, model services and evaluation through Django Channels. '''
 
 import asyncio, json, logging
 from datetime import timedelta
@@ -19,9 +19,9 @@ MAX_AUDIO_BYTES = 20000000
 CLOSING_FALLBACK = 'Thank you for your time today. The interview is now complete.'
 
 class InterviewConsumer(AsyncWebsocketConsumer):
-    ''' Coordinate one live interview over a WebSocket connection. '''
+    ''' Own the authenticated WebSocket lifecycle for one candidate interview. '''
     async def connect(self):
-        ''' Authenticate the candidate and initialize the interview connection. '''
+        ''' Verify ownership, reserve the realtime GPU worker and restore or begin the candidate interview. '''
         self.interview_id = self.scope['url_route']['kwargs']['interview_id']
         self.interview = None
         self.pending_transcript = ''
@@ -93,7 +93,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
         self.timeout_task = asyncio.create_task(self.interview_timeout())
 
     async def disconnect(self, close_code):
-        ''' Release connection state without treating a network loss as interview completion. '''
+        ''' Release the GPU-worker reservation after network loss without ending the persisted interview. '''
         if self.timeout_task:
             self.timeout_task.cancel()
 
@@ -101,7 +101,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
             model_runtime.release_interview(self.interview.id)
 
     async def receive(self, text_data=None, bytes_data=None):
-        ''' Handle one candidate audio utterance, text message, or interview control. '''
+        ''' Route browser audio, typed answers, transcript confirmations and interview controls to their handlers. '''
         if self.finished:
             return
 
@@ -130,7 +130,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
             await self.handle_control(message.get('action', ''))
 
     async def handle_audio(self, audio_bytes):
-        ''' Transcribe one complete browser-recorded utterance. '''
+        ''' Turn one browser recording into candidate text, optionally pausing for transcript confirmation. '''
         if self.pending_transcript:
             await self.send_json({'type': 'error', 'message': 'Please confirm or replace the current transcript before recording again.'})
             return
@@ -168,7 +168,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
         await self.handle_candidate_text(transcript)
 
     async def handle_confirmed_transcript(self, text):
-        ''' Accept the candidate-corrected speech transcript. '''
+        ''' Replace ASR output with the candidate-approved transcript before interview processing continues. '''
         if not self.pending_transcript:
             return
 
@@ -176,7 +176,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
         await self.handle_candidate_text(text)
 
     async def handle_candidate_text(self, text):
-        ''' Process one candidate text turn and return the interviewer response. '''
+        ''' Send one candidate answer through interview policy and model processing, then return the resulting interviewer turn. '''
         text = text.strip()[:MAX_TEXT_CHARS]
 
         if not text:
@@ -203,7 +203,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
             await self.complete_live_session()
 
     async def handle_control(self, action):
-        ''' Handle candidate accessibility and interview controls. '''
+        ''' Support rephrase, pause and candidate-ended controls without treating them as answer turns. '''
         if action == 'rephrase':
             await self.send_json({'type': 'status', 'status': 'thinking'})
 
@@ -224,7 +224,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
             await self.finish_with_closing_message()
 
     async def send_interviewer(self, text, final=False):
-        ''' Send interviewer text followed by WAV audio. '''
+        ''' Deliver interviewer text immediately and pair it with best-effort Qwen3-TTS audio. '''
         await self.send_json({'type': 'assistant', 'text': text})
         await self.send_json({'type': 'status', 'status': 'speaking'})
 
@@ -240,7 +240,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
             await self.send_json({'type': 'ready'})
 
     async def finish_with_closing_message(self):
-        ''' Close the interview politely and start final evaluation. '''
+        ''' Persist a final interviewer closing, end the live session and hand the interview to post-interview evaluation. '''
         if self.finished:
             return
 
@@ -260,13 +260,13 @@ class InterviewConsumer(AsyncWebsocketConsumer):
         await self.complete_live_session()
 
     async def finish_without_closing_message(self):
-        ''' Finish an expired interview that is being resumed after its time limit. '''
+        ''' End a resumed interview that already exceeded 30 minutes without generating an extra closing turn. '''
         self.finished = True
         await sync_to_async(finish_interview)(self.interview)
         await self.complete_live_session()
 
     async def complete_live_session(self):
-        ''' Notify the candidate and start post-interview evaluation. '''
+        ''' Close the live WebSocket cleanly and hand the completed interview to background evaluation. '''
         if self.timeout_task and self.timeout_task is not asyncio.current_task():
             self.timeout_task.cancel()
 
@@ -279,7 +279,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
         await self.close(code=1000)
 
     async def interview_timeout(self):
-        ''' End a connected interview when the 30-minute time limit expires. '''
+        ''' Enforce the 30-minute limit while a candidate remains connected. '''
         if not self.interview.started_at:
             return
 
@@ -296,20 +296,20 @@ class InterviewConsumer(AsyncWebsocketConsumer):
             await self.finish_with_closing_message()
 
     async def send_json(self, payload):
-        ''' Send one JSON WebSocket message. '''
+        ''' Keep WebSocket control and status messages serialized through one JSON helper. '''
         await self.send(text_data=json.dumps(payload))
 
     def activate_interview(self):
-        ''' Mark a newly created interview active. '''
+        ''' Start the persisted interview clock when its first WebSocket session reserves the worker. '''
         self.interview.status = 'active'
         self.interview.started_at = timezone.now()
         self.interview.save(update_fields=['status', 'started_at'])
 
     def get_turns(self):
-        ''' Return the stored transcript for reconnecting browsers. '''
+        ''' Restore persisted role and text history when a candidate reconnects to an active interview. '''
         return list(self.interview.turns.values('role', 'text'))
 
     @staticmethod
     def get_interview(interview_id, user_id):
-        ''' Return an interview owned by the connected candidate. '''
+        ''' Enforce candidate ownership when resolving a WebSocket interview ID. '''
         return InterviewSession.objects.filter(id=interview_id, user_id=user_id).first()

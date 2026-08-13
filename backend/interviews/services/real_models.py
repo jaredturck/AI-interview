@@ -1,4 +1,4 @@
-''' Real Qwen model implementations for interview inference. '''
+''' Bind the fixed Qwen interviewer, safety, speech, misuse and evaluator checkpoints to application-facing model interfaces. '''
 
 import gc, io, re, threading
 
@@ -21,7 +21,7 @@ QUESTION_MAX_TOKENS = 2048
 FINAL_REASONING_MAX_TOKENS = 4096
 
 def strip_thinking(text):
-    ''' Return only the final response after a model thinking block. '''
+    ''' Remove Qwen thinking blocks so only candidate-facing text or stored conclusions leave the model wrapper. '''
     if '</think>' in text:
         return text.rsplit('</think>', 1)[1].strip()
 
@@ -31,13 +31,13 @@ def strip_thinking(text):
     return text.strip()
 
 def device_map_for(device):
-    ''' Convert one fixed device into a Transformers device map. '''
+    ''' Pin a model to one selected GPU using the Transformers root device-map format. '''
     return {'': device}
 
 class QwenMultimodalChatModel:
-    ''' Run the fixed Qwen3.5 and Qwen3.6 checkpoints through Transformers. '''
+    ''' Serve Qwen/Qwen3.5-9B interviewer and Qwen/Qwen3.6-27B evaluator through the shared multimodal Transformers wrapper. '''
     def __init__(self, model_name, device, evaluator=False):
-        ''' Load one Qwen multimodal checkpoint in INT8. '''
+        ''' Prepare Qwen3.5-9B or Qwen3.6-27B in INT8 for its assigned interview or evaluation GPU role. '''
         model_kwargs = {
             'device_map': 'auto' if evaluator else device_map_for(device),
             'dtype': torch.bfloat16,
@@ -54,14 +54,14 @@ class QwenMultimodalChatModel:
         self.model.eval()
 
     def prepare_inputs(self, messages, enable_thinking):
-        ''' Tokenize text-only chat messages with the model processor. '''
+        ''' Apply the Qwen multimodal chat template while allowing thinking only for evaluation calls. '''
         prompt = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
         inputs = self.processor(text=[prompt], return_tensors='pt', padding=True)
         input_device = next(self.model.parameters()).device
         return inputs.to(input_device)
 
     def generate(self, messages, max_tokens, thinking, temperature, top_p):
-        ''' Generate one free-form model response. '''
+        ''' Provide free-form Qwen3.5-9B or Qwen3.6-27B generation with thinking enabled only when the caller requires it. '''
         inputs = self.prepare_inputs(messages, thinking)
 
         with torch.inference_mode():
@@ -73,7 +73,7 @@ class QwenMultimodalChatModel:
         return strip_thinking(text)
 
     def choice(self, messages, choices):
-        ''' Generate exactly one value from a fixed choice set. '''
+        ''' Constrain Qwen3.5-9B or Qwen3.6-27B output where application logic requires an exact approved decision. '''
         inputs = self.prepare_inputs(messages, False)
         tokenizer = self.processor.tokenizer
         choice_token_ids = [tokenizer.encode(choice, add_special_tokens=False) for choice in choices]
@@ -89,9 +89,9 @@ class QwenMultimodalChatModel:
         return text if text in choices else ''
 
 class QwenTextModel:
-    ''' Run a fixed text-only Qwen checkpoint through Transformers. '''
+    ''' Serve the text-only Qwen/Qwen3.5-4B misuse monitor through Transformers. '''
     def __init__(self, model_name, device):
-        ''' Load one text model in INT8. '''
+        ''' Keep Qwen3.5-4B in INT8 on its assigned realtime GPU for misuse classification. '''
         model_kwargs = {
             'device_map': device_map_for(device),
             'dtype': torch.bfloat16,
@@ -103,13 +103,13 @@ class QwenTextModel:
         self.model.eval()
 
     def prepare_inputs(self, messages, enable_thinking):
-        ''' Tokenize plain text messages using the Qwen chat template. '''
+        ''' Apply the Qwen3.5 chat template for constrained misuse classification. '''
         inputs = self.tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=True, return_dict=True,
             return_tensors='pt', enable_thinking=enable_thinking)
         return inputs.to(self.model.device)
 
     def choice(self, messages, choices):
-        ''' Generate exactly one value from a fixed choice set. '''
+        ''' Limit misuse-monitor output to the exact control decisions understood by interview policy. '''
         inputs = self.prepare_inputs(messages, False)
         choice_token_ids = [self.tokenizer.encode(choice, add_special_tokens=False) for choice in choices]
         logits_processor = ChoiceLogitsProcessor(inputs['input_ids'].shape[-1], choice_token_ids, self.tokenizer.eos_token_id)
@@ -124,16 +124,16 @@ class QwenTextModel:
         return text if text in choices else ''
 
 class QwenASRModel:
-    ''' Transcribe candidate speech with the native Hugging Face Qwen3-ASR checkpoint. '''
+    ''' Transcribe candidate speech with Qwen/Qwen3-ASR-1.7B-hf while allowing automatic language detection. '''
     def __init__(self):
-        ''' Load Qwen3-ASR in BF16 on the second GPU. '''
+        ''' Keep Qwen3-ASR-1.7B-hf resident in BF16 on GPU 1 for realtime speech input. '''
         self.processor = AutoProcessor.from_pretrained(ASR_MODEL)
         self.model = AutoModelForMultimodalLM.from_pretrained(ASR_MODEL, device_map=device_map_for('cuda:1'), dtype=torch.bfloat16,
             attn_implementation='sdpa', low_cpu_mem_usage=True)
         self.model.eval()
 
     def transcribe(self, audio, sample_rate):
-        ''' Transcribe one mono candidate utterance with automatic language detection. '''
+        ''' Convert one candidate utterance into interview text while Qwen3-ASR detects the spoken language. '''
         inputs = self.processor.apply_transcription_request(audio=(audio, sample_rate))
         inputs = inputs.to(next(self.model.parameters()).device)
 
@@ -146,9 +146,9 @@ class QwenASRModel:
         return match.group(1).strip() if match else text
 
 class QwenGuardModel:
-    ''' Run Qwen3Guard content-safety classification. '''
+    ''' Protect candidate input and interviewer output with Qwen/Qwen3Guard-Gen-4B. '''
     def __init__(self):
-        ''' Load Qwen3Guard in INT8 on the second GPU. '''
+        ''' Keep Qwen3Guard-Gen-4B resident in INT8 on GPU 1 for realtime safety checks. '''
         model_kwargs = {
             'device_map': device_map_for('cuda:1'),
             'dtype': torch.bfloat16,
@@ -160,7 +160,7 @@ class QwenGuardModel:
         self.model.eval()
 
     def classify(self, messages):
-        ''' Classify a conversation as safe, unsafe, or controversial. '''
+        ''' Reduce Qwen3Guard output to the Safe, Unsafe or Controversial label required by interview control. '''
         text = self.tokenizer.apply_chat_template(messages, tokenize=False)
         inputs = self.tokenizer([text], return_tensors='pt').to(self.model.device)
 
@@ -173,14 +173,14 @@ class QwenGuardModel:
         return match.group(1) if match else 'Unsafe'
 
 def load_qwen_tts():
-    ''' Load the fixed Qwen3-TTS model for realtime interviews. '''
+    ''' Keep Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice on GPU 0 for realtime interviewer speech. '''
     from qwen_tts import Qwen3TTSModel  # noqa: PLC0415
     return Qwen3TTSModel.from_pretrained(TTS_MODEL, device_map='cuda:0', dtype=torch.bfloat16, attn_implementation='sdpa')
 
 class RealModelSuite:
-    ''' Coordinate the fixed Qwen models used by the three AI subsystems. '''
+    ''' Own Qwen3.5-9B, Qwen3.5-4B, Qwen3Guard, Qwen3-ASR and Qwen3-TTS realtime models plus the Qwen3.6-27B evaluator lifecycle. '''
     def __init__(self):
-        ''' Initialize model references and GPU lifecycle state. '''
+        ''' Track model residency and serialize realtime and evaluator GPU transitions within the process. '''
         self.lock = threading.RLock()
         self.asr = None
         self.tts = None
@@ -191,12 +191,12 @@ class RealModelSuite:
         self.mode = 'idle'
 
     def clear_cuda(self):
-        ''' Release unused Python and CUDA allocations. '''
+        ''' Reclaim GPU memory after switching between the realtime Qwen stack and Qwen3.6 evaluation. '''
         gc.collect()
         torch.cuda.empty_cache()
 
     def load_live(self):
-        ''' Load the realtime interviewer, speech, safety, and misuse models. '''
+        ''' Make the Qwen interviewer, misuse, guard, ASR and TTS stack resident for immediate interviews. '''
         with self.lock:
             if self.mode == 'live' and self.interviewer_model:
                 return
@@ -210,11 +210,11 @@ class RealModelSuite:
             self.mode = 'live'
 
     def live_loaded(self):
-        ''' Return whether every realtime model is resident and ready. '''
+        ''' Gate interview availability on every required realtime Qwen model being resident. '''
         return self.mode == 'live' and all([self.asr, self.tts, self.interviewer_model, self.misuse_model, self.guard_model])
 
     def unload_live(self):
-        ''' Unload all realtime models from GPU memory. '''
+        ''' Free both GPUs for Qwen3.6 final evaluation by releasing the realtime model stack. '''
         with self.lock:
             self.asr = None
             self.tts = None
@@ -228,7 +228,7 @@ class RealModelSuite:
             self.clear_cuda()
 
     def load_evaluator(self):
-        ''' Give both GPUs to the extended-reasoning evaluator. '''
+        ''' Replace the realtime stack with Qwen/Qwen3.6-27B across both GPUs for final evaluation. '''
         with self.lock:
             if self.mode == 'evaluator' and self.evaluator_model:
                 return
@@ -238,7 +238,7 @@ class RealModelSuite:
             self.mode = 'evaluator'
 
     def unload_evaluator(self):
-        ''' Unload the final evaluator from GPU memory. '''
+        ''' Release Qwen3.6-27B so the realtime interview stack can be restored. '''
         with self.lock:
             self.evaluator_model = None
 
@@ -248,35 +248,35 @@ class RealModelSuite:
             self.clear_cuda()
 
     def transcribe(self, audio, sample_rate):
-        ''' Transcribe candidate speech with automatic language detection. '''
+        ''' Expose Qwen3-ASR transcription through the model-suite interface used by live WebSocket interviews. '''
         return self.asr.transcribe(audio, sample_rate)
 
     def speak(self, text):
-        ''' Synthesize one short interviewer response as WAV audio. '''
+        ''' Turn interviewer text into WAV bytes with Qwen3-TTS for direct WebSocket delivery. '''
         wavs, sample_rate = self.tts.generate_custom_voice(text=text, language='Auto', speaker=TTS_SPEAKER, instruct=TTS_INSTRUCTION)
         output = io.BytesIO()
         sf.write(output, wavs[0], sample_rate, format='WAV')
         return output.getvalue()
 
     def guard_user(self, text):
-        ''' Check a candidate request before interviewer generation. '''
+        ''' Block unsafe candidate requests before they reach the Qwen3.5 interviewer. '''
         return self.guard_model.classify([{'role': 'user', 'content': text}])
 
     def guard_response(self, user_text, assistant_text):
-        ''' Check interviewer output before speech synthesis. '''
+        ''' Block unsafe Qwen3.5 interviewer output before it is shown or synthesized. '''
         return self.guard_model.classify([
             {'role': 'user', 'content': user_text},
             {'role': 'assistant', 'content': assistant_text}
         ])
 
     def interviewer(self, system_prompt, turns, max_tokens=32):
-        ''' Generate the next brief realtime interviewer response. '''
+        ''' Use Qwen3.5-9B without thinking to generate the next short adaptive interview turn. '''
         messages = [{'role': 'system', 'content': system_prompt}]
         messages.extend({'role': turn['role'], 'content': turn['text']} for turn in turns)
         return self.interviewer_model.generate(messages, max_tokens=max_tokens, thinking=False, temperature=0.7, top_p=0.8)
 
     def misuse(self, transcript):
-        ''' Classify accumulated interview misuse as continue, redirect, or terminate. '''
+        ''' Use Qwen3.5-4B to decide whether accumulated misuse should continue, redirect or terminate the interview. '''
         messages = [
             {'role': 'system', 'content': MISUSE_PROMPT},
             {'role': 'user', 'content': transcript}
@@ -284,7 +284,7 @@ class RealModelSuite:
         return self.misuse_model.choice(messages, ['CONTINUE', 'REDIRECT', 'TERMINATE'])
 
     def evaluate_question(self, job_description, transcript, question):
-        ''' Reason deeply about one fixed evaluation criterion. '''
+        ''' Use thinking-enabled Qwen3.6-27B to produce the stored assessment for one configured criterion. '''
         self.load_evaluator()
         context = f'JOB DESCRIPTION\n{job_description}\n\nINTERVIEW TRANSCRIPT\n{transcript}\n\nCRITERION\n{question}'
         messages = [
@@ -294,7 +294,7 @@ class RealModelSuite:
         return self.evaluator_model.generate(messages, max_tokens=QUESTION_MAX_TOKENS, thinking=True, temperature=1.0, top_p=0.95)
 
     def final_choice(self, job_description, transcript, answers):
-        ''' Reason across all criterion assessments before producing the constrained outcome. '''
+        ''' Use Qwen3.6-27B to reason across criterion assessments and constrain the result to PROGRESS or NOT_PROGRESS. '''
         self.load_evaluator()
         assessments = '\n\n'.join(f'{index + 1}. {item["question"]}\nAssessment: {item["answer"]}' for index, item in enumerate(answers))
         context = f'JOB DESCRIPTION\n{job_description}\n\nINTERVIEW TRANSCRIPT\n{transcript}\n\nCRITERION ASSESSMENTS\n{assessments}'

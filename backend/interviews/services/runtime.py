@@ -1,11 +1,11 @@
-''' Coordinate exclusive GPU ownership between live interviewing and evaluation. '''
+''' Coordinate exclusive dual-GPU ownership between the resident realtime Qwen stack and Qwen3.6 evaluation. '''
 
 import threading
 
 class ModelRuntime:
-    ''' Manage the single dual-GPU interview and evaluation worker. '''
+    ''' Enforce single-interview access and exclusive evaluator ownership of the dual-GPU model worker. '''
     def __init__(self):
-        ''' Initialize process-wide model ownership state. '''
+        ''' Track which interview or evaluation currently owns the process-wide model worker. '''
         self.lock = threading.RLock()
         self.active_interview_id = None
         self.evaluating = False
@@ -13,7 +13,7 @@ class ModelRuntime:
 
     @property
     def suite(self):
-        ''' Return the process-wide real model suite. '''
+        ''' Delay heavy Qwen imports for non-server Django commands while sharing one RealModelSuite process-wide. '''
         if self._suite is None:
             from interviews.services.real_models import RealModelSuite  # noqa: PLC0415
             self._suite = RealModelSuite()
@@ -21,11 +21,11 @@ class ModelRuntime:
         return self._suite
 
     def preload_live(self):
-        ''' Load every realtime interview model before accepting interviews. '''
+        ''' Make every realtime Qwen model resident during Django server startup before interviews can be accepted. '''
         self.suite.load_live()
 
     def reserve_interview(self, interview_id):
-        ''' Reserve the already-loaded live model worker for one browser connection. '''
+        ''' Grant one browser interview exclusive use of the already-resident realtime Qwen stack. '''
         interview_id = str(interview_id)
 
         with self.lock:
@@ -40,13 +40,13 @@ class ModelRuntime:
         return True
 
     def release_interview(self, interview_id):
-        ''' Release a disconnected live interview reservation. '''
+        ''' Return the realtime worker to available capacity after the matching browser disconnects. '''
         with self.lock:
             if self.active_interview_id == str(interview_id):
                 self.active_interview_id = None
 
     def begin_evaluation(self, interview_id):
-        ''' Atomically hand the GPU worker from an interview to the evaluator. '''
+        ''' Transfer exclusive GPU ownership from a completed interview to Qwen3.6 final evaluation. '''
         interview_id = str(interview_id)
 
         with self.lock:
@@ -73,7 +73,7 @@ class ModelRuntime:
         return True
 
     def finish_evaluation(self):
-        ''' Unload the evaluator and immediately restore the realtime models. '''
+        ''' Restore the realtime Qwen stack immediately after Qwen3.6 final evaluation releases the GPUs. '''
         try:
             self.suite.load_live()
 
@@ -82,7 +82,7 @@ class ModelRuntime:
                 self.evaluating = False
 
     def capacity_available(self):
-        ''' Return whether a new interview can reserve the GPU worker. '''
+        ''' Report whether the resident realtime stack is free for a new interview. '''
         with self.lock:
             return not self.evaluating and self.active_interview_id is None and self.suite.live_loaded()
 
