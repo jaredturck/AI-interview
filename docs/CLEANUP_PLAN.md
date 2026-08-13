@@ -20,7 +20,7 @@ Keep the agreed model stack and build directly around it:
 
 - ASR: `Qwen/Qwen3-ASR-1.7B` through the official `qwen-asr` Transformers-backed runtime.
 - Interviewer: `Qwen/Qwen3.5-9B`, non-thinking, INT8, GPU 0.
-- TTS: `Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice`, BF16, GPU 0.
+- TTS: `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice`, BF16, GPU 0 through qwentts.cpp.
 - Content safety: `Qwen/Qwen3Guard-Gen-4B`, INT8, GPU 1.
 - Misuse monitor: `Qwen/Qwen3.5-4B`, non-thinking, INT8, GPU 1.
 - Final evaluator: `Qwen/Qwen3.6-27B`, INT8 across both RTX 3090 GPUs with thinking enabled.
@@ -185,6 +185,6 @@ Apply the same simplicity/readability philosophy to JavaScript/React without mec
 
 ## Post-audit implementation note
 
-The dependency review performed during verification found that the original `qwen-asr` wrapper pins an older Transformers generation that does not match the current Qwen3.5/Qwen3.6 runtime. The implementation therefore uses the official native Hugging Face `Qwen/Qwen3-ASR-1.7B-hf` checkpoint instead. This preserves the agreed Qwen3-ASR model family while removing the ASR wrapper dependency. Qwen3-TTS remains the one Qwen-specific wrapper because it does not currently have the same native Transformers path.
+The dependency review performed during verification found that the original `qwen-asr` wrapper pins an older Transformers generation that does not match the current Qwen3.5/Qwen3.6 runtime. The implementation therefore uses the official native Hugging Face `Qwen/Qwen3-ASR-1.7B-hf` checkpoint instead. Qwen3-TTS now runs through qwentts.cpp in the same Django process, keeping the Python Transformers 5 stack unchanged without the incompatible `qwen-tts` package.
 
 The reconnect implementation was also simplified further than the initial plan: the cleaned V1 permits one live WebSocket per interview rather than maintaining a connection count. This prevents overlapping model calls and transcript races on the single dual-GPU worker.

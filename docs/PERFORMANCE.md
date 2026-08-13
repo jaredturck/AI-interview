@@ -3,7 +3,7 @@
 ## Live worker
 
 ```text
-GPU 0: Qwen3.5-9B INT8 + Qwen3-TTS-0.6B BF16
+GPU 0: Qwen3.5-9B INT8 + Qwen3-TTS-1.7B BF16 via qwentts.cpp
 GPU 1: Qwen3-ASR-1.7B BF16 + Qwen3.5-4B INT8 + Qwen3Guard-Gen-4B INT8
 ```
 

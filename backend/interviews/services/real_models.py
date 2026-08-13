@@ -8,14 +8,14 @@ from transformers import AutoModelForCausalLM, AutoModelForMultimodalLM, AutoPro
 
 from interviews.services.choice import ChoiceLogitsProcessor
 from interviews.services.content import EVALUATOR_QUESTION_PROMPT, FINAL_CHOICE_PROMPT, FINAL_OUTPUT_PROMPT, MISUSE_PROMPT
+from interviews.services.qwen_tts_cpp import QwenTTSModel
 
 ASR_MODEL = 'Qwen/Qwen3-ASR-1.7B-hf'
 INTERVIEWER_MODEL = 'Qwen/Qwen3.5-9B'
-TTS_MODEL = 'Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice'
 GUARD_MODEL = 'Qwen/Qwen3Guard-Gen-4B'
 MISUSE_MODEL = 'Qwen/Qwen3.5-4B'
 EVALUATOR_MODEL = 'Qwen/Qwen3.6-27B'
-TTS_SPEAKER = 'Ryan'
+TTS_SPEAKER = 'vivian'
 TTS_INSTRUCTION = 'Speak clearly, calmly, warmly, and at a natural interview pace.'
 QUESTION_MAX_TOKENS = 2048
 FINAL_REASONING_MAX_TOKENS = 4096
@@ -173,9 +173,8 @@ class QwenGuardModel:
         return match.group(1) if match else 'Unsafe'
 
 def load_qwen_tts():
-    ''' Keep Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice on GPU 0 for realtime interviewer speech. '''
-    from qwen_tts import Qwen3TTSModel  # noqa: PLC0415
-    return Qwen3TTSModel.from_pretrained(TTS_MODEL, device_map='cuda:0', dtype=torch.bfloat16, attn_implementation='sdpa')
+    ''' Keep Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice on GPU 0 through the qwentts.cpp native runtime. '''
+    return QwenTTSModel()
 
 class RealModelSuite:
     ''' Own Qwen3.5-9B, Qwen3.5-4B, Qwen3Guard, Qwen3-ASR and Qwen3-TTS realtime models plus the Qwen3.6-27B evaluator lifecycle. '''
@@ -222,6 +221,10 @@ class RealModelSuite:
         ''' Free both GPUs for Qwen3.6 final evaluation by releasing the realtime model stack. '''
         with self.lock:
             self.asr = None
+
+            if self.tts:
+                self.tts.close()
+
             self.tts = None
             self.interviewer_model = None
             self.misuse_model = None
@@ -258,9 +261,9 @@ class RealModelSuite:
 
     def speak(self, text):
         ''' Turn interviewer text into WAV bytes with Qwen3-TTS for direct WebSocket delivery. '''
-        wavs, sample_rate = self.tts.generate_custom_voice(text=text, language='Auto', speaker=TTS_SPEAKER, instruct=TTS_INSTRUCTION)
+        wav, sample_rate = self.tts.synthesize(text, TTS_SPEAKER, TTS_INSTRUCTION)
         output = io.BytesIO()
-        sf.write(output, wavs[0], sample_rate, format='WAV')
+        sf.write(output, wav, sample_rate, format='WAV')
         return output.getvalue()
 
     def guard_user(self, text):

@@ -11,10 +11,3 @@ transformers>=5.13
 accelerate
 bitsandbytes
 soundfile
-
-# Qwen3-TTS runtime dependencies. qwen-tts itself is installed with --no-deps because its current package metadata pins an older Transformers release.
-librosa
-torchaudio
-onnxruntime
-einops
-sox

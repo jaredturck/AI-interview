@@ -19,7 +19,7 @@ Django + Channels
     |
     +-- Qwen3-ASR-1.7B-hf        speech -> text
     +-- Qwen3.5-9B               adaptive interviewer
-    +-- Qwen3-TTS-0.6B           text -> speech
+    +-- Qwen3-TTS-1.7B           text -> speech
     +-- Qwen3Guard-Gen-4B        immediate content safety
     +-- Qwen3.5-4B               accumulated misuse monitoring
     |
@@ -56,14 +56,14 @@ The SQLite database stores runtime application data: accounts, interview session
 
 - Python 3.12+
 - Node.js and npm
-- ffmpeg
-- NVIDIA CUDA/PyTorch support
+- ffmpeg, git and cmake
+- NVIDIA CUDA toolkit (`nvcc`) and PyTorch support
 - two RTX 3090 GPUs for the intended real-model deployment
 
 On Arch Linux:
 
 ```bash
-sudo pacman -S ffmpeg sox
+sudo pacman -S ffmpeg cmake git
 ```
 
 ## Python setup
@@ -77,13 +77,31 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Qwen3-TTS currently publishes an exact Transformers 4.57.3 dependency, while native Hugging Face support for `Qwen/Qwen3-ASR-1.7B-hf` requires Transformers 5.13+. The application keeps the agreed Qwen models and uses the native Hugging Face ASR checkpoint, so install Qwen TTS without letting its package metadata downgrade Transformers:
+Qwen3-TTS runs through the native `qwentts.cpp` shared library so the Python environment can remain on Transformers 5. The application uses the source-faithful BF16 GGUF conversion of `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice` and the `vivian` English female speaker.
+
+Build the pinned qwentts.cpp ABI used by the Python binding:
 
 ```bash
-pip install --no-deps qwen-tts
+mkdir -p ~/.cache/adaptive-ai-interviewer
+git clone --recurse-submodules https://github.com/ServeurpersoCom/qwentts.cpp.git ~/.cache/adaptive-ai-interviewer/qwentts.cpp
+cd ~/.cache/adaptive-ai-interviewer/qwentts.cpp
+git checkout a8a7716b530e49fed537c57711247c12fbbb903c
+git submodule update --init --recursive
+cmake -S . -B build -DGGML_CUDA=ON -DQWEN_SHARED=ON -DCMAKE_CUDA_ARCHITECTURES=86
+cmake --build build -j "$(nproc)"
 ```
 
-The direct runtime dependencies needed by Qwen TTS are already present in `requirements.txt`. This compatibility workaround should be rechecked whenever Qwen publishes a newer TTS package.
+Download the matching BF16 talker and codec:
+
+```bash
+mkdir -p ~/.cache/adaptive-ai-interviewer/qwen3-tts
+hf download Serveurperso/Qwen3-TTS-GGUF \
+    qwen-talker-1.7b-customvoice-BF16.gguf \
+    qwen-tokenizer-12hz-BF16.gguf \
+    --local-dir ~/.cache/adaptive-ai-interviewer/qwen3-tts
+```
+
+The Django process loads `libqwen.so` directly with `ctypes`; there is no second Python environment or local TTS server. If CUDA rejects Arch's current host compiler, configure CMake with a CUDA-supported GCC using `-DCMAKE_CUDA_HOST_COMPILER=/path/to/g++`.
 
 ## Frontend setup
 
