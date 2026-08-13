@@ -53,6 +53,7 @@ class JobApplication(models.Model):
         ('interview_in_progress', _('Interview in progress')),
         ('evaluating', _('Evaluating')),
         ('complete', _('Complete')),
+        ('withdrawn', _('Withdrawn')),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

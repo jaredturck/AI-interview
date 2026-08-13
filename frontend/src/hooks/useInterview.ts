@@ -5,6 +5,8 @@ import { get_interview_status } from '../api';
 import type { InterviewResult, InterviewStatusResponse, JobSummary, LiveStatus, TranscriptMessage, TranscriptRole, WebSocketMessage } from '../types';
 
 const TERMINAL_STATUSES = ['completed', 'terminated', 'evaluating', 'evaluated', 'evaluation_failed'];
+const SILENCE_MS = 2000;
+const SPEECH_THRESHOLD = 0.012;
 
 export default function useInterview(interview_id: string) {
     const {t} = useTranslation();
@@ -29,6 +31,12 @@ export default function useInterview(interview_id: string) {
     const speech_speed_ref = useRef(1);
     const voice_enabled_ref = useRef(true);
     const audio_playing_ref = useRef(false);
+    const audio_context_ref = useRef<AudioContext | null>(null);
+    const analyser_ref = useRef<AnalyserNode | null>(null);
+    const level_buffer_ref = useRef<Uint8Array | null>(null);
+    const silence_frame_ref = useRef<number | null>(null);
+    const speech_started_ref = useRef(false);
+    const last_speech_ref = useRef(0);
 
     useEffect(() => {
         load_interview();
@@ -209,6 +217,53 @@ export default function useInterview(interview_id: string) {
         return true;
     }
 
+    function monitor_microphone() {
+        const analyser = analyser_ref.current;
+        const level_buffer = level_buffer_ref.current;
+
+        if (!analyser || !level_buffer) {
+            return;
+        }
+
+        analyser.getByteTimeDomainData(level_buffer);
+        let energy = 0;
+
+        for (const sample of level_buffer) {
+            const level = (sample - 128) / 128;
+            energy += level * level;
+        }
+
+        const rms = Math.sqrt(energy / level_buffer.length);
+        const now = performance.now();
+
+        if (rms >= SPEECH_THRESHOLD) {
+            speech_started_ref.current = true;
+            last_speech_ref.current = now;
+        } else if (speech_started_ref.current && now - last_speech_ref.current >= SILENCE_MS) {
+            stop_recording();
+            return;
+        }
+
+        silence_frame_ref.current = window.requestAnimationFrame(monitor_microphone);
+    }
+
+    function stop_silence_monitor() {
+        if (silence_frame_ref.current !== null) {
+            window.cancelAnimationFrame(silence_frame_ref.current);
+            silence_frame_ref.current = null;
+        }
+
+        analyser_ref.current = null;
+        level_buffer_ref.current = null;
+        speech_started_ref.current = false;
+        last_speech_ref.current = 0;
+
+        if (audio_context_ref.current) {
+            audio_context_ref.current.close().catch(() => undefined);
+            audio_context_ref.current = null;
+        }
+    }
+
     function start_recording() {
         set_error('');
 
@@ -223,6 +278,16 @@ export default function useInterview(interview_id: string) {
             const mime_type = supported_types.find((item) => MediaRecorder.isTypeSupported(item)) || '';
             const recorder = mime_type ? new MediaRecorder(stream, {mimeType: mime_type}) : new MediaRecorder(stream);
             const chunks: Blob[] = [];
+            const audio_context = new AudioContext();
+            audio_context.resume().catch(() => undefined);
+            const source = audio_context.createMediaStreamSource(stream);
+            const analyser = audio_context.createAnalyser();
+            analyser.fftSize = 2048;
+            analyser.smoothingTimeConstant = 0.2;
+            source.connect(analyser);
+            audio_context_ref.current = audio_context;
+            analyser_ref.current = analyser;
+            level_buffer_ref.current = new Uint8Array(analyser.fftSize);
             recorder_ref.current = recorder;
             recorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
@@ -230,6 +295,7 @@ export default function useInterview(interview_id: string) {
                 }
             };
             recorder.onstop = async () => {
+                stop_silence_monitor();
                 const blob = new Blob(chunks, {type: recorder.mimeType || mime_type});
                 const buffer = await blob.arrayBuffer();
 
@@ -239,16 +305,22 @@ export default function useInterview(interview_id: string) {
 
                 stream.getTracks().forEach((track) => track.stop());
                 stream_ref.current = null;
+                recorder_ref.current = null;
+                set_is_recording(false);
             };
             recorder.start();
             set_is_recording(true);
             set_status('listening');
+            silence_frame_ref.current = window.requestAnimationFrame(monitor_microphone);
         }).catch(() => set_error(t('errors.microphoneDenied')));
     }
 
     function stop_recording() {
+        stop_silence_monitor();
+
         if (recorder_ref.current?.state === 'recording') {
             recorder_ref.current.stop();
+            set_status('transcribing');
         }
 
         set_is_recording(false);
@@ -293,6 +365,8 @@ export default function useInterview(interview_id: string) {
     }
 
     function cleanup_resources() {
+        stop_silence_monitor();
+
         if (recorder_ref.current?.state === 'recording') {
             recorder_ref.current.stop();
         }

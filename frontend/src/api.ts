@@ -75,6 +75,14 @@ export function get_application(application_id: string) {
     return request<{application: JobApplication}>(`/api/applications/${application_id}/`);
 }
 
+export function delete_interview_data(interview_id: string) {
+    return request<{deleted: boolean}>(`/api/interviews/${interview_id}/delete/`, {method: 'POST'});
+}
+
+export function delete_all_interview_data() {
+    return request<{deleted: boolean}>('/api/account/interview-data/delete/', {method: 'POST'});
+}
+
 export function start_application_interview(application_id: string, payload: StartInterviewPayload) {
     return request<StartInterviewResponse>(`/api/applications/${application_id}/interview/start/`, {method: 'POST', body: JSON.stringify(payload)});
 }

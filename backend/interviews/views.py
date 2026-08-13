@@ -1,18 +1,18 @@
 ''' Expose session-authenticated candidate authentication, jobs, applications, interviews and human-review APIs. '''
 
-import json
+import csv, json
 
 from django.contrib.auth import authenticate, get_user_model, login as django_login, logout as django_logout
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import IntegrityError
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils.translation import gettext as _
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
-from interviews.models import HumanReviewRequest, InterviewSession, Job, JobApplication
+from interviews.models import ConversationTurn, HumanReviewRequest, InterviewSession, Job, JobApplication
 from interviews.services.interview import INTERVIEW_MAX_MINUTES
 from interviews.services.runtime import model_runtime
 
@@ -181,6 +181,56 @@ def account(request):
     applications = JobApplication.objects.filter(user=request.user).select_related('job', 'interview', 'interview__review_request')
     return JsonResponse({'email': request.user.email, 'applications': [serialize_application(application) for application in applications]})
 
+@require_GET
+def download_interview_transcripts(request):
+    ''' Download only this candidate's interview transcript turns and role context as CSV. '''
+    if not request.user.is_authenticated:
+        return authentication_error()
+
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename="interview-transcripts.csv"'
+    writer = csv.writer(response)
+    writer.writerow(['job_title', 'job_subtitle', 'interview_date', 'speaker', 'turn_time', 'text'])
+    turns = ConversationTurn.objects.filter(interview__application__user=request.user).select_related(
+        'interview__application__job').order_by('interview__created_at', 'created_at', 'id')
+
+    for turn in turns:
+        interview = turn.interview
+        job = interview.application.job
+        speaker = 'candidate' if turn.role == 'user' else 'interviewer'
+        writer.writerow([job.title, job.subtitle, interview.created_at.isoformat(), speaker, turn.created_at.isoformat(), turn.text])
+
+    return response
+
+@require_POST
+def delete_interview_data(request, interview_id):
+    ''' Permanently remove one candidate-owned application interview and every dependent evidence record. '''
+    interview = owned_interview(request, interview_id)
+
+    if not interview:
+        return api_error('interview_not_found', _('Interview not found.'), 404)
+
+    application = interview.application
+    model_runtime.release_interview(interview.id)
+    interview.delete()
+    application.status = 'withdrawn'
+    application.save(update_fields=['status'])
+    return JsonResponse({'deleted': True, 'application_status': application.status})
+
+@require_POST
+def delete_all_interview_data(request):
+    ''' Permanently remove every recruitment application and interview record while preserving the login account. '''
+    if not request.user.is_authenticated:
+        return authentication_error()
+
+    interview_ids = InterviewSession.objects.filter(application__user=request.user).values_list('id', flat=True)
+
+    for interview_id in interview_ids:
+        model_runtime.release_interview(interview_id)
+
+    JobApplication.objects.filter(user=request.user).delete()
+    return JsonResponse({'deleted': True})
+
 @ensure_csrf_cookie
 @require_GET
 def bootstrap(request):
@@ -255,6 +305,9 @@ def start_application_interview(request, application_id):
 
     if not application:
         return api_error('application_not_found', _('Application not found.'), 404)
+
+    if application.status == 'withdrawn':
+        return api_error('application_withdrawn', _('This application has been withdrawn.'), 409)
 
     existing = getattr(application, 'interview', None)
 

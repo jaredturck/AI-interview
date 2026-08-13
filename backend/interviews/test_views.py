@@ -6,7 +6,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.test import Client
 
-from interviews.models import InterviewSession, Job, JobApplication
+from interviews.models import ConversationTurn, EvaluationAnswer, HumanReviewRequest, InterviewSession, Job, JobApplication
 
 User = get_user_model()
 
@@ -146,3 +146,91 @@ def test_missing_job_returns_json_error():
     response = client.post('/api/jobs/00000000-0000-0000-0000-000000000000/apply/', data='{}', content_type='application/json')
     assert response.status_code == 404
     assert response.json()['code'] == 'job_not_found'
+
+@pytest.mark.django_db
+def test_transcript_download_contains_only_owned_transcript_data():
+    ''' Verify the CSV export includes transcript context without exposing automated outcome data or another candidate. '''
+    user = create_user()
+    other = create_user('other@example.com')
+    job = create_job()
+    application = JobApplication.objects.create(user=user, job=job, status='complete')
+    interview = InterviewSession.objects.create(application=application, status='evaluated', result='PROGRESS')
+    ConversationTurn.objects.create(interview=interview, role='assistant', text='Tell me about your previous role.')
+    ConversationTurn.objects.create(interview=interview, role='user', text='I supervised an evening facilities team.')
+    other_application = JobApplication.objects.create(user=other, job=job)
+    other_interview = InterviewSession.objects.create(application=other_application)
+    ConversationTurn.objects.create(interview=other_interview, role='user', text='Private answer from another candidate.')
+    client = Client()
+    client.force_login(user)
+    response = client.get('/api/account/transcripts/')
+    content = response.content.decode('utf-8')
+    assert response.status_code == 200
+    assert response['Content-Type'].startswith('text/csv')
+    assert 'Commercial Cleaner' in content
+    assert 'I supervised an evening facilities team.' in content
+    assert 'Private answer from another candidate.' not in content
+    assert 'PROGRESS' not in content
+
+@pytest.mark.django_db
+def test_candidate_can_delete_one_interview_and_withdraw_that_application():
+    ''' Verify one interview deletion removes its evidence, withdraws that application and leaves other applications intact. '''
+    user = create_user()
+    first_job = create_job()
+    second_job = Job.objects.create(title='Warehouse Operative', subtitle='Operations', description='Support warehouse operations.',
+        evaluation_questions='Reliability evidence')
+    application = JobApplication.objects.create(user=user, job=first_job, status='complete')
+    interview = InterviewSession.objects.create(application=application, status='evaluated', result='NOT_PROGRESS')
+    ConversationTurn.objects.create(interview=interview, role='user', text='Sensitive employment history.')
+    EvaluationAnswer.objects.create(interview=interview, question_index=0, question='Reliability evidence', answer='Assessment evidence')
+    HumanReviewRequest.objects.create(interview=interview, explanation='Please review this interview.')
+    other_application = JobApplication.objects.create(user=user, job=second_job)
+    client = Client()
+    client.force_login(user)
+    response = client.post(f'/api/interviews/{interview.id}/delete/', data='{}', content_type='application/json')
+    assert response.status_code == 200
+    assert response.json()['deleted'] is True
+    assert User.objects.filter(id=user.id).exists()
+    application.refresh_from_db()
+    assert application.status == 'withdrawn'
+    assert not InterviewSession.objects.filter(id=interview.id).exists()
+    assert JobApplication.objects.filter(id=other_application.id).exists()
+    reapplied = client.post(f'/api/jobs/{first_job.id}/apply/', data='{}', content_type='application/json')
+    restarted = client.post(f'/api/applications/{application.id}/interview/start/', data='{}', content_type='application/json')
+    assert reapplied.status_code == 200
+    assert reapplied.json()['application']['id'] == str(application.id)
+    assert reapplied.json()['application']['status'] == 'withdrawn'
+    assert restarted.status_code == 409
+    assert restarted.json()['code'] == 'application_withdrawn'
+
+@pytest.mark.django_db
+def test_candidate_can_delete_all_recruitment_data_without_deleting_account():
+    ''' Verify delete-all removes every application and dependent interview record while preserving authentication data. '''
+    user = create_user()
+    job = create_job()
+    application = JobApplication.objects.create(user=user, job=job, status='complete')
+    interview = InterviewSession.objects.create(application=application, status='evaluated', result='PROGRESS')
+    ConversationTurn.objects.create(interview=interview, role='user', text='Sensitive employment history.')
+    EvaluationAnswer.objects.create(interview=interview, question_index=0, question='Reliability evidence', answer='Assessment evidence')
+    HumanReviewRequest.objects.create(interview=interview, explanation='Please review this interview.')
+    client = Client()
+    client.force_login(user)
+    response = client.post('/api/account/interview-data/delete/', data='{}', content_type='application/json')
+    assert response.status_code == 200
+    assert response.json()['deleted'] is True
+    assert User.objects.filter(id=user.id, username='candidate@example.com').exists()
+    assert not JobApplication.objects.filter(user=user).exists()
+    assert not InterviewSession.objects.filter(application__user=user).exists()
+
+@pytest.mark.django_db
+def test_candidate_cannot_delete_another_candidates_interview():
+    ''' Verify destructive interview endpoints enforce the same candidate ownership boundary as read endpoints. '''
+    owner = create_user()
+    other = create_user('other@example.com')
+    job = create_job()
+    application = JobApplication.objects.create(user=owner, job=job)
+    interview = InterviewSession.objects.create(application=application)
+    client = Client()
+    client.force_login(other)
+    response = client.post(f'/api/interviews/{interview.id}/delete/', data='{}', content_type='application/json')
+    assert response.status_code == 404
+    assert InterviewSession.objects.filter(id=interview.id).exists()

@@ -22,7 +22,8 @@ export default function ApplicationPage() {
     }
 
     const interview = application?.interview;
-    let action = application ? <Link to={`/applications/${application.id}/interview`} className="primary-button">{t('application.start')}</Link> : null;
+    const withdrawn = application?.status === 'withdrawn';
+    let action = application && !withdrawn ? <Link to={`/applications/${application.id}/interview`} className="primary-button">{t('application.start')}</Link> : null;
 
     if (interview && ['created', 'active'].includes(interview.status)) {
         action = <Link to={`/interviews/${interview.id}`} className="primary-button">{t('application.resume')}</Link>;
@@ -41,9 +42,10 @@ export default function ApplicationPage() {
                 </section>
                 <section className="application-panel">
                     <div className="application-panel-row"><span>{t('application.status')}</span><strong>{t(`applicationStatus.${application.status}`)}</strong></div>
-                    <div className="application-panel-row"><span>{t('application.interview')}</span><strong>{interview ? t(`interviewStatus.${interview.status}`) : t('applicationStatus.interview_pending')}</strong></div>
+                    <div className="application-panel-row"><span>{t('application.interview')}</span><strong>{interview ? t(`interviewStatus.${interview.status}`) : withdrawn ? t('applicationStatus.withdrawn') : t('applicationStatus.interview_pending')}</strong></div>
                     <div className="application-action-card">
-                        {!interview && <><h2>{t('application.pendingTitle')}</h2><p>{t('application.pendingDescription')}</p></>}
+                        {withdrawn && <><h2>{t('application.withdrawnTitle')}</h2><p>{t('application.withdrawnDescription')}</p></>}
+                        {!interview && !withdrawn && <><h2>{t('application.pendingTitle')}</h2><p>{t('application.pendingDescription')}</p></>}
                         {interview && ['completed', 'terminated', 'evaluating'].includes(interview.status) && <><h2>{t('application.evaluatingTitle')}</h2><p>{t('application.evaluatingDescription')}</p></>}
                         {action}
                     </div>

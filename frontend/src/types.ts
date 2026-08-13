@@ -1,4 +1,4 @@
-export type ApplicationStatus = 'interview_pending' | 'interview_in_progress' | 'evaluating' | 'complete';
+export type ApplicationStatus = 'interview_pending' | 'interview_in_progress' | 'evaluating' | 'complete' | 'withdrawn';
 export type InterviewStatus = 'created' | 'active' | 'completed' | 'terminated' | 'evaluating' | 'evaluated' | 'evaluation_failed';
 export type InterviewResult = '' | 'PROGRESS' | 'NOT_PROGRESS';
 export type LiveStatus = 'idle' | 'connecting' | 'loading' | 'ready' | 'listening' | 'transcribing' | 'confirming' | 'thinking' | 'speaking' | 'paused' | 'complete' | 'evaluation_failed';

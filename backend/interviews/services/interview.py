@@ -10,6 +10,7 @@ from interviews.services.runtime import model_runtime
 from interviews.services.transcript import transcript_text, turn_list
 
 INTERVIEW_MAX_MINUTES = 30
+INTERVIEWER_MAX_TOKENS = 128
 MAX_TEXT_CHARS = 12000
 SAFE_FALLBACK = 'I can\'t help with that request. Let\'s return to the interview. Could you tell me more about your relevant experience?'
 
@@ -22,7 +23,7 @@ def build_system_prompt(interview, temporary_instruction=''):
 
     return '\n\n'.join(parts)
 
-def generate_interviewer_reply(interview, candidate_text='', temporary_instruction='', internal_user_message='', max_tokens=32):
+def generate_interviewer_reply(interview, candidate_text='', temporary_instruction='', internal_user_message='', max_tokens=INTERVIEWER_MAX_TOKENS):
     ''' Generate one Qwen3.5 interviewer turn and block unsafe output before it reaches the candidate. '''
     system_prompt = build_system_prompt(interview, temporary_instruction)
     turns = turn_list(interview)
@@ -51,7 +52,7 @@ def closing_message(interview):
 def rephrase_message(interview):
     ''' Support accessibility by asking the current interviewer question in a simpler, narrower form. '''
     instruction = 'Rephrase the last interviewer question so it is simpler, narrower and easier to understand. Ask one question.'
-    return generate_interviewer_reply(interview, internal_user_message=instruction, max_tokens=32)
+    return generate_interviewer_reply(interview, internal_user_message=instruction)
 
 def interview_timed_out(interview):
     ''' Enforce the 30-minute interview limit across live and resumed sessions. '''

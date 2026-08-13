@@ -88,6 +88,7 @@ button:disabled {
 
 .primary-button,
 .secondary-button,
+.danger-button,
 .ghost-button,
 .text-button,
 .text-link,
@@ -101,6 +102,7 @@ button:disabled {
 
 .primary-button,
 .secondary-button,
+.danger-button,
 .ghost-button {
     display: inline-flex;
     min-height: 2.55rem;
@@ -135,6 +137,17 @@ button:disabled {
 .secondary-button:hover:not(:disabled) {
     border-color: rgba(96, 165, 250, 0.55);
     background: rgba(30, 41, 59, 0.88);
+}
+
+.danger-button {
+    border: 1px solid rgba(248, 113, 113, 0.55);
+    background: rgba(153, 27, 27, 0.72);
+    color: #fee2e2;
+}
+
+.danger-button:hover:not(:disabled) {
+    border-color: rgba(248, 113, 113, 0.85);
+    background: rgba(185, 28, 28, 0.88);
 }
 
 .ghost-button {
@@ -521,7 +534,8 @@ button:disabled {
 
 .status-evaluation_failed,
 .status-not_progress,
-.status-terminated {
+.status-terminated,
+.status-withdrawn {
     border-color: rgba(248, 113, 113, 0.28);
     background: rgba(127, 29, 29, 0.22);
     color: #fecaca;
@@ -549,6 +563,139 @@ button:disabled {
     margin: 0.45rem 0 0;
     color: #8494aa;
     font-size: 0.82rem;
+}
+
+.application-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.application-menu-wrap {
+    position: relative;
+}
+
+.application-menu-button {
+    display: inline-grid;
+    width: 2.55rem;
+    height: 2.55rem;
+    place-items: center;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 0.8rem;
+    background: rgba(15, 23, 42, 0.72);
+    color: #dbe4ef;
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.application-menu-button:hover {
+    border-color: rgba(96, 165, 250, 0.48);
+    background: rgba(30, 41, 59, 0.9);
+}
+
+.application-menu {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 0.45rem);
+    right: 0;
+    min-width: 12rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 0.8rem;
+    background: #0b1628;
+    padding: 0.35rem;
+    box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.36);
+}
+
+.application-menu button {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.55rem;
+    border: 0;
+    border-radius: 0.6rem;
+    background: transparent;
+    color: #fecaca;
+    padding: 0.72rem 0.8rem;
+    cursor: pointer;
+    text-align: left;
+    font-weight: 700;
+}
+
+.application-menu button:hover {
+    background: rgba(127, 29, 29, 0.26);
+}
+
+.privacy-card {
+    display: flex;
+    margin-top: 2rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    border-radius: 1rem;
+    background: linear-gradient(145deg, rgba(15, 27, 46, 0.92), rgba(9, 18, 32, 0.93));
+    padding: 1.35rem;
+}
+
+.privacy-card h2,
+.confirm-dialog h2 {
+    margin: 0;
+    color: white;
+    font-size: 1.2rem;
+}
+
+.privacy-card p:not(.eyebrow),
+.confirm-dialog > p:not(.eyebrow):not(.destructive-label) {
+    max-width: 680px;
+    margin: 0.55rem 0 0;
+    color: #9fb0c6;
+    line-height: 1.65;
+}
+
+.privacy-actions,
+.confirm-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.7rem;
+}
+
+.confirm-backdrop {
+    position: fixed;
+    z-index: 100;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: rgba(2, 6, 23, 0.78);
+    padding: 1rem;
+    backdrop-filter: blur(8px);
+}
+
+.confirm-dialog {
+    width: min(540px, 100%);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 1rem;
+    background: #0b1628;
+    padding: 1.45rem;
+    box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.45);
+}
+
+.confirm-actions {
+    margin-top: 1.4rem;
+}
+
+.destructive-dialog {
+    border-color: rgba(248, 113, 113, 0.32);
+}
+
+.destructive-label {
+    margin: 0 0 0.6rem;
+    color: #fca5a5;
+    font-size: 0.76rem;
+    font-weight: 900;
+    letter-spacing: 0.09em;
 }
 
 .application-hero {
@@ -1388,6 +1535,20 @@ button:disabled {
 
     .application-card {
         display: flex;
+    }
+
+    .application-card-actions,
+    .privacy-card {
+        width: 100%;
+        align-items: stretch;
+    }
+
+    .privacy-card {
+        flex-direction: column;
+    }
+
+    .privacy-actions {
+        justify-content: flex-start;
     }
 
     .interview-header {
