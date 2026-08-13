@@ -173,14 +173,14 @@ class QwenGuardModel:
         return match.group(1) if match else 'Unsafe'
 
 def load_qwen_tts():
-    ''' Load Qwen3-TTS only when the live speech stack is required. '''
+    ''' Load the fixed Qwen3-TTS model for realtime interviews. '''
     from qwen_tts import Qwen3TTSModel  # noqa: PLC0415
     return Qwen3TTSModel.from_pretrained(TTS_MODEL, device_map='cuda:0', dtype=torch.bfloat16, attn_implementation='sdpa')
 
 class RealModelSuite:
     ''' Coordinate the fixed Qwen models used by the three AI subsystems. '''
     def __init__(self):
-        ''' Initialize lazy model references and GPU lifecycle state. '''
+        ''' Initialize model references and GPU lifecycle state. '''
         self.lock = threading.RLock()
         self.asr = None
         self.tts = None
@@ -208,6 +208,10 @@ class RealModelSuite:
             self.asr = QwenASRModel()
             self.tts = load_qwen_tts()
             self.mode = 'live'
+
+    def live_loaded(self):
+        ''' Return whether every realtime model is resident and ready. '''
+        return self.mode == 'live' and all([self.asr, self.tts, self.interviewer_model, self.misuse_model, self.guard_model])
 
     def unload_live(self):
         ''' Unload all realtime models from GPU memory. '''
@@ -245,12 +249,10 @@ class RealModelSuite:
 
     def transcribe(self, audio, sample_rate):
         ''' Transcribe candidate speech with automatic language detection. '''
-        self.load_live()
         return self.asr.transcribe(audio, sample_rate)
 
     def speak(self, text):
         ''' Synthesize one short interviewer response as WAV audio. '''
-        self.load_live()
         wavs, sample_rate = self.tts.generate_custom_voice(text=text, language='Auto', speaker=TTS_SPEAKER, instruct=TTS_INSTRUCTION)
         output = io.BytesIO()
         sf.write(output, wavs[0], sample_rate, format='WAV')
@@ -258,12 +260,10 @@ class RealModelSuite:
 
     def guard_user(self, text):
         ''' Check a candidate request before interviewer generation. '''
-        self.load_live()
         return self.guard_model.classify([{'role': 'user', 'content': text}])
 
     def guard_response(self, user_text, assistant_text):
         ''' Check interviewer output before speech synthesis. '''
-        self.load_live()
         return self.guard_model.classify([
             {'role': 'user', 'content': user_text},
             {'role': 'assistant', 'content': assistant_text}
@@ -271,14 +271,12 @@ class RealModelSuite:
 
     def interviewer(self, system_prompt, turns, max_tokens=32):
         ''' Generate the next brief realtime interviewer response. '''
-        self.load_live()
         messages = [{'role': 'system', 'content': system_prompt}]
         messages.extend({'role': turn['role'], 'content': turn['text']} for turn in turns)
         return self.interviewer_model.generate(messages, max_tokens=max_tokens, thinking=False, temperature=0.7, top_p=0.8)
 
     def misuse(self, transcript):
         ''' Classify accumulated interview misuse as continue, redirect, or terminate. '''
-        self.load_live()
         messages = [
             {'role': 'system', 'content': MISUSE_PROMPT},
             {'role': 'user', 'content': transcript}

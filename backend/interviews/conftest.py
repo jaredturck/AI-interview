@@ -10,6 +10,10 @@ class FakeModelSuite:
         ''' Simulate loading the live model stack. '''
         return None
 
+    def live_loaded(self):
+        ''' Report the fake realtime model stack as ready. '''
+        return True
+
     def load_evaluator(self):
         ''' Simulate loading the evaluator. '''
         return None

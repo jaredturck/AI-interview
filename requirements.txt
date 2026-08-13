@@ -6,6 +6,7 @@ pytest
 pytest-django
 pytest-asyncio
 torch
+torchvision==0.24.1
 transformers>=5.13
 accelerate
 bitsandbytes

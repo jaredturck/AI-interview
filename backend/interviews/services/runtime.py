@@ -13,32 +13,29 @@ class ModelRuntime:
 
     @property
     def suite(self):
-        ''' Return the lazily created real model suite. '''
+        ''' Return the process-wide real model suite. '''
         if self._suite is None:
             from interviews.services.real_models import RealModelSuite  # noqa: PLC0415
             self._suite = RealModelSuite()
 
         return self._suite
 
+    def preload_live(self):
+        ''' Load every realtime interview model before accepting interviews. '''
+        self.suite.load_live()
+
     def reserve_interview(self, interview_id):
-        ''' Reserve the live model worker for one browser connection. '''
+        ''' Reserve the already-loaded live model worker for one browser connection. '''
         interview_id = str(interview_id)
 
         with self.lock:
             if self.evaluating or self.active_interview_id:
                 return False
 
+            if not self.suite.live_loaded():
+                raise RuntimeError('Realtime interview models are not loaded.')
+
             self.active_interview_id = interview_id
-
-        loaded = False
-
-        try:
-            self.suite.load_live()
-            loaded = True
-
-        finally:
-            if not loaded:
-                self.release_interview(interview_id)
 
         return True
 
@@ -76,15 +73,17 @@ class ModelRuntime:
         return True
 
     def finish_evaluation(self):
-        ''' Release the evaluator and return the worker to an idle state. '''
-        self.suite.unload_evaluator()
+        ''' Unload the evaluator and immediately restore the realtime models. '''
+        try:
+            self.suite.load_live()
 
-        with self.lock:
-            self.evaluating = False
+        finally:
+            with self.lock:
+                self.evaluating = False
 
     def capacity_available(self):
         ''' Return whether a new interview can reserve the GPU worker. '''
         with self.lock:
-            return not self.evaluating and self.active_interview_id is None
+            return not self.evaluating and self.active_interview_id is None and self.suite.live_loaded()
 
 model_runtime = ModelRuntime()
