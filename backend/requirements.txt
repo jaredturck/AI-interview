@@ -1,7 +1,0 @@
-Django==6.0.8
-channels==4.3.2
-daphne==4.2.3
-numpy>=2.0,<3
-rank-bm25==0.2.2
-pytest==9.1.1
-pytest-django==4.14.0
