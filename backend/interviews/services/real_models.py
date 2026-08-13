@@ -202,11 +202,16 @@ class RealModelSuite:
                 return
 
             self.unload_evaluator()
-            self.interviewer_model = QwenMultimodalChatModel(INTERVIEWER_MODEL, 'cuda:0')
-            self.misuse_model = QwenTextModel(MISUSE_MODEL, 'cuda:1')
-            self.guard_model = QwenGuardModel()
-            self.asr = QwenASRModel()
+            print('Loading Qwen3-TTS realtime model...', flush=True)
             self.tts = load_qwen_tts()
+            print('Loading Qwen3-ASR realtime model...', flush=True)
+            self.asr = QwenASRModel()
+            print('Loading Qwen3Guard realtime model...', flush=True)
+            self.guard_model = QwenGuardModel()
+            print('Loading Qwen3.5-4B misuse model...', flush=True)
+            self.misuse_model = QwenTextModel(MISUSE_MODEL, 'cuda:1')
+            print('Loading Qwen3.5-9B interviewer model...', flush=True)
+            self.interviewer_model = QwenMultimodalChatModel(INTERVIEWER_MODEL, 'cuda:0')
             self.mode = 'live'
 
     def live_loaded(self):
