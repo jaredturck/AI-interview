@@ -1,0 +1,300 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: adaptive-ai-interviewer 0.2\n"
+"Language: pl\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "AI Interview Admin"
+msgstr "Administracja rozmów AI"
+
+msgid "AI Interview Administration"
+msgstr "Administracja rozmów AI"
+
+msgid "Active"
+msgstr "Aktywna"
+
+msgid "Activity"
+msgstr "Aktywność"
+
+msgid "Administration"
+msgstr "Administracja"
+
+msgid "An account with that email already exists."
+msgstr "Konto z tym adresem e-mail już istnieje."
+
+msgid "Application not found."
+msgstr "Nie znaleziono aplikacji."
+
+msgid "Applications"
+msgstr "Aplikacje"
+
+msgid "Assistant"
+msgstr "Asystent"
+
+msgid "Authentication is required."
+msgstr "Wymagane jest zalogowanie."
+
+msgid "Cancel"
+msgstr "Anuluj"
+
+msgid "Candidate"
+msgstr "Kandydat"
+
+msgid "Close selected jobs"
+msgstr "Zamknij wybrane stanowiska"
+
+msgid "Closed"
+msgstr "Zamknięta"
+
+msgid "Complete"
+msgstr "Zakończona"
+
+msgid "Completed"
+msgstr "Zakończona"
+
+msgid "Create and open job"
+msgstr "Utwórz i otwórz stanowisko"
+
+msgid "Create job"
+msgstr "Utwórz stanowisko"
+
+msgid "Create job from configuration"
+msgstr "Utwórz stanowisko z konfiguracji"
+
+msgid "Create vacancies from the configured role, monitor candidate applications and inspect interview evidence."
+msgstr "Twórz stanowiska z konfiguracji, monitoruj aplikacje kandydatów i przeglądaj materiały z rozmów."
+
+msgid "Created"
+msgstr "Utworzona"
+
+msgid "Dashboard"
+msgstr "Panel"
+
+msgid "Data"
+msgstr "Dane"
+
+msgid "Evaluated"
+msgstr "Oceniona"
+
+msgid "Evaluating"
+msgstr "Ocena w toku"
+
+msgid "Evaluation failed"
+msgstr "Błąd oceny"
+
+msgid "Evaluation questions"
+msgstr "Pytania oceniające"
+
+msgid "Filter navigation"
+msgstr "Filtruj nawigację"
+
+msgid "Filter navigation items"
+msgstr "Filtruj elementy nawigacji"
+
+msgid "Human review can be requested after automated processing is complete."
+msgstr "Po zakończeniu automatycznego przetwarzania można poprosić o weryfikację przez człowieka."
+
+msgid "Interview"
+msgstr "Rozmowa"
+
+msgid "Interview Admin"
+msgstr "Administracja rozmów"
+
+msgid "Interview in progress"
+msgstr "Rozmowa w toku"
+
+msgid "Interview not found."
+msgstr "Nie znaleziono rozmowy."
+
+msgid "Interview pending"
+msgstr "Rozmowa oczekuje"
+
+msgid "Interview status"
+msgstr "Status rozmowy"
+
+msgid "Interviews"
+msgstr "Rozmowy"
+
+msgid "Interviews pending"
+msgstr "Oczekujące rozmowy"
+
+msgid "Job"
+msgstr "Stanowisko"
+
+msgid "Job \"%(title)s\" was created and opened for applications."
+msgstr "Stanowisko „%(title)s” zostało utworzone i otwarte na aplikacje."
+
+msgid "Job description"
+msgstr "Opis stanowiska"
+
+msgid "Job not found."
+msgstr "Nie znaleziono stanowiska."
+
+msgid "Jobs"
+msgstr "Stanowiska"
+
+msgid "Language"
+msgstr "Język"
+
+msgid "Manage vacancies, applications, interview evidence and candidate review requests."
+msgstr "Zarządzaj stanowiskami, aplikacjami, materiałami z rozmów i prośbami kandydatów o weryfikację."
+
+msgid "New vacancy"
+msgstr "Nowe stanowisko"
+
+msgid "No recent admin actions."
+msgstr "Brak ostatnich działań administratora."
+
+msgid "Not progress"
+msgstr "Nie przechodzi dalej"
+
+msgid "Not started"
+msgstr "Nie rozpoczęto"
+
+msgid "Open"
+msgstr "Otwarte"
+
+msgid "Open jobs"
+msgstr "Otwarte stanowiska"
+
+msgid "Open selected jobs"
+msgstr "Otwórz wybrane stanowiska"
+
+msgid "Password"
+msgstr "Hasło"
+
+msgid "Pending"
+msgstr "Oczekuje"
+
+msgid "Please explain what you would like reviewed."
+msgstr "Wyjaśnij, co ma zostać zweryfikowane."
+
+msgid "Progress"
+msgstr "Przechodzi dalej"
+
+msgid "Qwen derives a short title and optional subtitle, while the exact description and evaluation questions are stored unchanged with the job."
+msgstr "Qwen tworzy krótki tytuł i opcjonalny podtytuł, a dokładny opis i pytania oceniające są zapisywane bez zmian wraz ze stanowiskiem."
+
+msgid "Recent actions"
+msgstr "Ostatnie działania"
+
+msgid "Recruitment"
+msgstr "Rekrutacja"
+
+msgid "Recruitment console"
+msgstr "Konsola rekrutacyjna"
+
+msgid "Recruitment dashboard"
+msgstr "Panel rekrutacji"
+
+msgid "Recruitment data"
+msgstr "Dane rekrutacyjne"
+
+msgid "Recruitment overview"
+msgstr "Przegląd rekrutacji"
+
+msgid "Recruitment statistics"
+msgstr "Statystyki rekrutacji"
+
+msgid "Result"
+msgstr "Wynik"
+
+msgid "Review requests"
+msgstr "Prośby o weryfikację"
+
+msgid "Sidebar"
+msgstr "Pasek boczny"
+
+msgid "Sign in"
+msgstr "Zaloguj się"
+
+msgid "Sign out"
+msgstr "Wyloguj się"
+
+msgid "Staff administration"
+msgstr "Administracja personelu"
+
+msgid "Staff sign in"
+msgstr "Logowanie personelu"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Terminated"
+msgstr "Przerwana"
+
+msgid "The AI model could not derive job metadata. Please try again when the interview worker is available."
+msgstr "Model AI nie mógł utworzyć metadanych stanowiska. Spróbuj ponownie, gdy usługa rozmów będzie dostępna."
+
+msgid "The AI model returned invalid job metadata. No job was created."
+msgstr "Model AI zwrócił nieprawidłowe metadane stanowiska. Nie utworzono stanowiska."
+
+msgid "The configured evaluation questions are empty."
+msgstr "Skonfigurowane pytania oceniające są puste."
+
+msgid "The configured job description is empty."
+msgstr "Skonfigurowany opis stanowiska jest pusty."
+
+msgid "The email address is too long."
+msgstr "Adres e-mail jest zbyt długi."
+
+msgid "The email or password is incorrect."
+msgstr "Adres e-mail lub hasło są nieprawidłowe."
+
+msgid "The interview worker is currently busy. Please try again shortly."
+msgstr "Usługa rozmów jest obecnie zajęta. Spróbuj ponownie za chwilę."
+
+msgid "This creates an immutable recruitment snapshot from the current project configuration and opens it for candidate applications."
+msgstr "Tworzy to niezmienny zapis rekrutacji z bieżącej konfiguracji projektu i otwiera go na aplikacje kandydatów."
+
+msgid "This job is no longer open for applications."
+msgstr "To stanowisko nie przyjmuje już aplikacji."
+
+msgid "Toggle navigation"
+msgstr "Przełącz nawigację"
+
+msgid "Use your staff account to continue."
+msgstr "Użyj konta pracownika, aby kontynuować."
+
+msgid "User"
+msgstr "Użytkownik"
+
+msgid "What happens next"
+msgstr "Co dalej"
+
+msgid "Your username and password did not match. Please try again."
+msgstr "Nazwa użytkownika i hasło nie pasują. Spróbuj ponownie."
+
+msgid "Job \"%(title)s\" was created and opened for applications."
+msgstr "Oferta „%(title)s” została utworzona i otwarta na aplikacje."
+
+msgid "Job application"
+msgstr "Aplikacja"
+
+msgid "Job applications"
+msgstr "Aplikacje"
+
+msgid "Interview session"
+msgstr "Sesja rozmowy"
+
+msgid "Interview sessions"
+msgstr "Sesje rozmowy"
+
+msgid "Conversation turn"
+msgstr "Wypowiedź"
+
+msgid "Conversation turns"
+msgstr "Wypowiedzi"
+
+msgid "Evaluation answer"
+msgstr "Odpowiedź oceny"
+
+msgid "Evaluation answers"
+msgstr "Odpowiedzi oceny"
+
+msgid "Human review request"
+msgstr "Prośba o ocenę człowieka"
+
+msgid "Human review requests"
+msgstr "Prośby o ocenę człowieka"

@@ -1,48 +1,29 @@
 # Security
 
-## Candidate authentication and ownership
+## Authentication, CSRF and ownership
 
-Candidates use Django's built-in password hashing and server-side session framework. Interviews are linked directly to the authenticated Django user.
+Candidates use Django password hashing and server-side sessions. `JobApplication.user` is the ownership boundary for application and interview resources.
 
-All interview start, status and review APIs require authentication and enforce interview ownership. Channels uses `AuthMiddlewareStack`, and every WebSocket verifies that the requested interview belongs to `scope['user']`.
+All candidate job/application/interview endpoints requiring account data verify authentication and ownership. State-changing HTTP calls remain protected by Django CSRF middleware; the React API client sends the CSRF cookie value as `X-CSRFToken`. Channels uses `AuthMiddlewareStack`, and every interview WebSocket verifies ownership before accepting model work.
 
-Django CSRF middleware protects state-changing HTTP requests. WebSockets are wrapped in `AllowedHostsOriginValidator` to prevent cross-origin use of an authenticated session.
+`AllowedHostsOriginValidator` restricts authenticated WebSocket origins. Production must also configure allowed hosts and trusted CSRF origins correctly.
 
-## AI safety
+## Rendering and injection safety
 
-Candidate text is checked by Qwen3Guard before the interviewer responds. Generated interviewer text is checked again before TTS.
+Candidate APIs return JSON only. React renders job metadata, descriptions, transcript text and model output as normal escaped text; the application does not use `dangerouslySetInnerHTML` for candidate/model content. Django admin templates retain Django autoescaping. ORM queries use Django query APIs rather than interpolated SQL.
 
-A separate transcript-level misuse model can return `CONTINUE`, `REDIRECT` or `TERMINATE`. It can end the live conversation but cannot produce the hiring outcome.
+The custom staff job-creation form is protected by Django admin authentication and CSRF. AI-derived job metadata is stored as plain text and never treated as HTML.
 
-Evaluator prompts explicitly treat transcript instructions as untrusted candidate content. Raw model thinking is not exposed through HTTP/WebSocket APIs and is not stored as candidate-facing output.
+## AI and resource safety
 
-## Resource protection
+Candidate text is checked by Qwen3Guard before interviewer generation, and generated interviewer text is checked again before TTS. A separate misuse model can redirect or terminate the conversation but cannot decide the hiring outcome.
 
-- candidate text is capped before storage and inference;
-- WebSocket audio is capped at 20 MB per utterance;
-- ffmpeg decoding is capped to 10 minutes of decoded audio and a 60-second subprocess timeout;
-- the interview has a 30-minute total limit;
-- one live interview or evaluator owns the dual-GPU worker at a time;
-- TTS audio uses binary WebSocket frames instead of base64 JSON.
+Resource limits include capped candidate text, 20 MB WebSocket audio, bounded ffmpeg decoding, a 60-second decoder timeout, a 30-minute interview limit and exclusive GPU-worker ownership.
 
-## Failure handling
+## Failure behaviour
 
-A model/infrastructure failure does not invent a candidate outcome. Failed final inference uses `evaluation_failed`, after which the candidate can request human review.
-
-If the Django process dies while a background evaluation is running, the in-memory evaluation job cannot survive the restart. The next account/status access detects a stale `evaluating` record and changes it to `evaluation_failed` rather than leaving the candidate permanently stuck.
-
-Completed WebSockets retain the model reservation until the evaluator thread takes ownership. Ordinary unfinished disconnects release the live reservation immediately. This prevents another interview from racing the evaluator during the live-to-final model handoff.
+Evaluation failures never create a positive/negative candidate result. They become `evaluation_failed`, after which human review can be requested. A stale in-process evaluation after backend restart is converted to explicit failure instead of leaving the application indefinitely pending.
 
 ## Production requirements
 
-Before public deployment:
-
-- use TLS;
-- use a strong `DJANGO_SECRET_KEY`;
-- set `DJANGO_DEBUG=false`;
-- configure production allowed hosts and CSRF trusted origins;
-- run a production ASGI server behind a reverse proxy;
-- rate-limit signup/login and other abuse-prone endpoints at the deployment boundary;
-- define transcript/account/evaluation data retention and deletion policies;
-- keep operating-system, CUDA, PyTorch and Python dependencies patched;
-- review candidate-facing privacy and automated-decision notices with appropriate legal/data-protection specialists.
+Before public deployment use TLS, strong secrets, production host/origin settings, endpoint rate limiting, dependency/OS patching, monitoring and an explicit candidate data retention/privacy policy. Automated-decision and recruitment notices should be reviewed with appropriate legal/data-protection specialists for the deployment jurisdiction.

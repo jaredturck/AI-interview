@@ -1,9 +1,11 @@
-''' Route Django admin and interview API traffic at the project boundary. '''
+''' Route custom Django administration, internationalization and candidate API traffic at the project boundary. '''
 
-from django.contrib import admin
 from django.urls import include, path
 
+from interviews.admin import recruitment_admin_site
+
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('admin/', recruitment_admin_site.urls),
+    path('i18n/', include('django.conf.urls.i18n')),
     path('api/', include('interviews.urls'))
 ]

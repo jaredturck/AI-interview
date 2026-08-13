@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from django.test import Client
 
 from ai_interviewer.asgi import application
-from interviews.models import InterviewSession
+from interviews.models import InterviewSession, Job, JobApplication
 
 User = get_user_model()
 
@@ -15,12 +15,19 @@ def no_evaluation(interview_id):
     ''' Suppress background evaluation so WebSocket tests can assert the live-session handoff deterministically. '''
     return None
 
+async def create_interview(user):
+    ''' Create a Job, candidate application and interview without crossing async ORM boundaries in each test. '''
+    job = await Job.objects.acreate(title='Commercial Cleaner', description='Clean commercial facilities.', evaluation_questions='Reliability evidence')
+    application = await JobApplication.objects.acreate(user=user, job=job)
+    return await InterviewSession.objects.acreate(application=application, status='created')
+
 @pytest.mark.asyncio
 @pytest.mark.django_db(transaction=True)
 async def test_typed_websocket_turn(monkeypatch):
     ''' Verify an authenticated typed interview follows the live WebSocket protocol through completion. '''
-    user = await sync_to_async(User.objects.create_user)(username='candidate@example.com', email='candidate@example.com', password='A-strong-test-password-42')
-    interview = await InterviewSession.objects.acreate(user=user, status='created')
+    user = await sync_to_async(User.objects.create_user)(username='candidate@example.com', email='candidate@example.com',
+        password='A-strong-test-password-42')
+    interview = await create_interview(user)
     client = Client()
     await sync_to_async(client.force_login)(user)
     session_cookie = client.cookies['sessionid'].value
@@ -46,7 +53,7 @@ async def test_typed_websocket_turn(monkeypatch):
     ready = await communicator.receive_json_from()
     assert ready == {'type': 'ready'}
 
-    candidate_text = 'I built a Django API with PostgreSQL.'
+    candidate_text = 'I managed commercial cleaning schedules and quality checks.'
     await communicator.send_json_to({'type': 'text', 'text': candidate_text})
     candidate = await communicator.receive_json_from()
     assert candidate == {'type': 'candidate', 'text': candidate_text}
@@ -70,7 +77,7 @@ async def test_websocket_rejects_another_candidate():
     ''' Verify WebSocket ownership checks reject a different candidate before connection acceptance. '''
     owner = await sync_to_async(User.objects.create_user)(username='owner@example.com', email='owner@example.com', password='A-strong-test-password-42')
     other = await sync_to_async(User.objects.create_user)(username='other@example.com', email='other@example.com', password='A-strong-test-password-42')
-    interview = await InterviewSession.objects.acreate(user=owner)
+    interview = await create_interview(owner)
     client = Client()
     await sync_to_async(client.force_login)(other)
     session_cookie = client.cookies['sessionid'].value

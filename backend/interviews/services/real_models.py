@@ -280,6 +280,16 @@ class RealModelSuite:
         messages.extend({'role': turn['role'], 'content': turn['text']} for turn in turns)
         return self.interviewer_model.generate(messages, max_tokens=max_tokens, thinking=False, temperature=0.7, top_p=0.8)
 
+    def job_metadata(self, description):
+        ''' Extract a short job title and optional subtitle from the staff-authored vacancy description. '''
+        system_prompt = ('Extract concise UI metadata from the job description. Return JSON only with keys title and subtitle. '
+            'Keep the title to roughly two to four words, keep the subtitle short and optional, and do not invent unsupported details.')
+        messages = [
+            {'role': 'system', 'content': system_prompt},
+            {'role': 'user', 'content': description}
+        ]
+        return self.interviewer_model.generate(messages, max_tokens=80, thinking=False, temperature=0.2, top_p=0.8)
+
     def misuse(self, transcript):
         ''' Use Qwen3.5-4B to decide whether accumulated misuse should continue, redirect or terminate the interview. '''
         messages = [

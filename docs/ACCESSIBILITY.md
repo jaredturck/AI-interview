@@ -1,34 +1,11 @@
 # Accessibility
 
-The interview is designed so speech is never the only way to answer and audio is never the only way to receive a question.
+Speech is never the only candidate input and audio is never the only interviewer output.
 
-## Candidate input
+Candidates can speak, type, switch between both, and optionally review/edit ASR text before it becomes interview evidence. Every interviewer response is also present in the persistent transcript.
 
-Candidates can:
+The Teams-style interview view provides replay, rephrase, `I need a moment`, voice mute, speech-speed adjustment, keyboard-operable controls, visible focus, semantic labels, screen-reader status announcements and reduced-motion support. On smaller screens the transcript becomes a dismissible drawer rather than shrinking the call surface into an unusable desktop layout.
 
-- speak through the microphone;
-- type responses;
-- switch between speaking and typing during the same interview;
-- optionally review and edit ASR text before it becomes an interview turn.
+Static candidate UI can be switched between English, French, German, Spanish, Italian, Portuguese, Dutch and Polish. The document language is updated when the selection changes. Dynamic job descriptions, transcript evidence and model-generated language are not automatically translated because doing so could alter recruitment evidence.
 
-## Interviewer output
-
-Every interviewer response is displayed as text and synthesized as speech. Candidates can mute interviewer speech without losing the written question.
-
-The interface also provides:
-
-- replay of the latest spoken question;
-- question rephrasing;
-- an `I need a moment` control;
-- adjustable speech playback speed;
-- persistent transcript/captions;
-- keyboard-operable controls;
-- semantic form labels and status regions for assistive technology;
-- visible keyboard focus;
-- reduced-motion support.
-
-## Interview behaviour
-
-The realtime prompt asks the model to adapt question specificity to the candidate. Broad questions can become narrower and more concrete when that helps the candidate communicate, while detailed answers can be explored naturally.
-
-The goal is to gather technical information rather than impose one fixed interview communication style.
+The realtime interviewer prompt asks the model to adapt question specificity to the candidate while remaining grounded in the role rather than assuming one communication style or occupation.

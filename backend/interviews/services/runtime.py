@@ -25,7 +25,7 @@ class ModelRuntime:
         self.suite.load_live()
 
     def reserve_interview(self, interview_id):
-        ''' Grant one browser interview exclusive use of the already-resident realtime Qwen stack. '''
+        ''' Grant one browser interview exclusive use of the realtime Qwen stack, loading it first when needed. '''
         interview_id = str(interview_id)
 
         with self.lock:
@@ -33,7 +33,7 @@ class ModelRuntime:
                 return False
 
             if not self.suite.live_loaded():
-                raise RuntimeError('Realtime interview models are not loaded.')
+                self.suite.load_live()
 
             self.active_interview_id = interview_id
 
@@ -81,9 +81,20 @@ class ModelRuntime:
             with self.lock:
                 self.evaluating = False
 
-    def capacity_available(self):
-        ''' Report whether the resident realtime stack is free for a new interview. '''
+    def generate_job_metadata(self, description):
+        ''' Generate concise job title metadata only while the shared realtime model worker is otherwise free. '''
         with self.lock:
-            return not self.evaluating and self.active_interview_id is None and self.suite.live_loaded()
+            if self.evaluating or self.active_interview_id:
+                return ''
+
+            if not self.suite.live_loaded():
+                self.suite.load_live()
+
+            return self.suite.job_metadata(description)
+
+    def capacity_available(self):
+        ''' Report whether the shared model worker is free for a new interview. '''
+        with self.lock:
+            return not self.evaluating and self.active_interview_id is None
 
 model_runtime = ModelRuntime()

@@ -1,0 +1,33 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+<ol class="breadcrumbs">
+    <li><a href="{% url 'admin:index' %}">{% translate 'Dashboard' %}</a></li>
+    <li><a href="{% url 'admin:interviews_job_changelist' %}">{% translate 'Jobs' %}</a></li>
+    <li aria-current="page">{% translate 'Create job from configuration' %}</li>
+</ol>
+{% endblock %}
+
+{% block content %}
+<div class="create-job-layout">
+    <section class="create-job-card">
+        <p class="eyebrow">{% translate 'New vacancy' %}</p>
+        <h1>{% translate 'Create job from configuration' %}</h1>
+        <p>{% translate 'This creates an immutable recruitment snapshot from the current project configuration and opens it for candidate applications.' %}</p>
+        <div class="config-files">
+            <div><span>{% translate 'Job description' %}</span><code>config/job_description.md</code></div>
+            <div><span>{% translate 'Evaluation questions' %}</span><code>config/evaluation_questions.txt</code></div>
+        </div>
+        <div class="create-job-note">
+            <strong>{% translate 'What happens next' %}</strong>
+            <p>{% translate 'Qwen derives a short title and optional subtitle, while the exact description and evaluation questions are stored unchanged with the job.' %}</p>
+        </div>
+        <form method="post">
+            {% csrf_token %}
+            <button class="button default" type="submit">{% translate 'Create and open job' %}</button>
+            <a class="button" href="{% url 'admin:interviews_job_changelist' %}">{% translate 'Cancel' %}</a>
+        </form>
+    </section>
+</div>
+{% endblock %}

@@ -24,7 +24,7 @@ class FakeModelSuite:
 
     def transcribe(self, audio, sample_rate):
         ''' Provide predictable ASR text for tests that exercise spoken interview turns. '''
-        return 'I built a Python API with PostgreSQL.'
+        return 'I managed commercial cleaning schedules and quality checks.'
 
     def speak(self, text):
         ''' Provide minimal WAV-like bytes so WebSocket audio delivery can be tested without Qwen3-TTS. '''
@@ -40,22 +40,26 @@ class FakeModelSuite:
 
     def interviewer(self, system_prompt, turns, max_tokens=32):
         ''' Drive opening, follow-up, redirect, rephrase and closing paths with deterministic interviewer text. '''
-        if 'End the interview now' in system_prompt:
+        if turns and turns[-1]['text'].startswith('End the interview now'):
             return 'Thank you for your time today.'
 
-        if 'Rephrase the last interviewer question' in system_prompt:
-            return 'What part of that project did you build?'
+        if turns and turns[-1]['text'].startswith('Rephrase the last interviewer question'):
+            return 'Could you describe your part in that work another way?'
 
         if 'unsafe' in system_prompt.lower():
-            return 'I can\'t help with that. What technical project would you like to discuss?'
+            return 'I can\'t help with that request. Could you tell me more about your relevant experience?'
 
         if 'steer the conversation back' in system_prompt:
-            return 'Let\'s return to the interview. What technical experience would you like to discuss?'
+            return 'Let\'s return to the interview. Could you tell me more about your relevant experience?'
 
-        if turns:
-            return 'What was your role in building that project?'
+        if turns and turns[-1]['text'].startswith('Begin the interview with one relevant opening question'):
+            return 'Could you tell me about experience that is relevant to this role?'
 
-        return 'Tell me about a software project you have worked on.'
+        return 'What responsibilities did you personally handle in that work?'
+
+    def job_metadata(self, description):
+        ''' Provide stable concise vacancy metadata for admin job-creation tests. '''
+        return '{"title": "Commercial Cleaner", "subtitle": "Facilities Team"}'
 
     def misuse(self, transcript):
         ''' Drive redirect and termination paths from repeated cake requests in the test transcript. '''

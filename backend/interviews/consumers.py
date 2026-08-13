@@ -54,12 +54,13 @@ class InterviewConsumer(AsyncWebsocketConsumer):
 
         except Exception as error:  # noqa: BLE001
             LOGGER.exception('Live interview models failed to load: %s', error)
-            await self.send_json({'type': 'error', 'message': 'The interviewer could not start. Please try again shortly.'})
-            await self.close(code=1011)
+            await self.send_json({'type': 'error', 'code': 'interviewer_start_failed',
+                'message': 'The interviewer could not start. Please try again shortly.'})
+            await self.close(code=4500)
             return
 
         if not reserved:
-            await self.send_json({'type': 'error', 'message': 'The interview worker is currently busy. Please try again shortly.'})
+            await self.send_json({'type': 'error', 'code': 'worker_busy', 'message': 'The interview worker is currently busy. Please try again shortly.'})
             await self.close(code=4429)
             return
 
@@ -81,8 +82,9 @@ class InterviewConsumer(AsyncWebsocketConsumer):
 
             except Exception as error:  # noqa: BLE001
                 LOGGER.exception('Opening interviewer generation failed: %s', error)
-                await self.send_json({'type': 'error', 'message': 'The interviewer could not start. Please try again shortly.'})
-                await self.close(code=1011)
+                await self.send_json({'type': 'error', 'code': 'interviewer_start_failed',
+                'message': 'The interviewer could not start. Please try again shortly.'})
+                await self.close(code=4500)
                 return
 
             await sync_to_async(add_turn)(self.interview, 'assistant', opening)
@@ -116,7 +118,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
             message = json.loads(text_data)
 
         except json.JSONDecodeError:
-            await self.send_json({'type': 'error', 'message': 'The interview received an invalid message.'})
+            await self.send_json({'type': 'error', 'code': 'invalid_message', 'message': 'The interview received an invalid message.'})
             return
 
         message_type = message.get('type')
@@ -132,18 +134,21 @@ class InterviewConsumer(AsyncWebsocketConsumer):
     async def handle_audio(self, audio_bytes):
         ''' Turn one browser recording into candidate text, optionally pausing for transcript confirmation. '''
         if self.pending_transcript:
-            await self.send_json({'type': 'error', 'message': 'Please confirm or replace the current transcript before recording again.'})
+            await self.send_json({'type': 'error', 'code': 'confirm_transcript_first',
+                'message': 'Please confirm or replace the current transcript before recording again.'})
             return
 
         if len(audio_bytes) > MAX_AUDIO_BYTES:
-            await self.send_json({'type': 'error', 'message': 'That recording is too large. Please send a shorter answer or type your response.'})
+            await self.send_json({'type': 'error', 'code': 'recording_too_large',
+                'message': 'That recording is too large. Please send a shorter answer or type your response.'})
             return
 
         await self.send_json({'type': 'status', 'status': 'transcribing'})
         audio, sample_rate = await sync_to_async(decode_browser_audio, thread_sensitive=False)(audio_bytes)
 
         if audio.size == 0:
-            await self.send_json({'type': 'error', 'message': 'I could not read that recording. Please try again or type your response.'})
+            await self.send_json({'type': 'error', 'code': 'recording_unreadable',
+                'message': 'I could not read that recording. Please try again or type your response.'})
             return
 
         try:
@@ -151,12 +156,13 @@ class InterviewConsumer(AsyncWebsocketConsumer):
 
         except Exception as error:  # noqa: BLE001
             LOGGER.exception('Speech transcription failed: %s', error)
-            await self.send_json({'type': 'error', 'message': 'Speech transcription is temporarily unavailable. You can continue by typing.'})
+            await self.send_json({'type': 'error', 'code': 'transcription_unavailable',
+                'message': 'Speech transcription is temporarily unavailable. You can continue by typing.'})
             await self.send_json({'type': 'ready'})
             return
 
         if not transcript:
-            await self.send_json({'type': 'error', 'message': 'I could not hear enough speech to transcribe that answer.'})
+            await self.send_json({'type': 'error', 'code': 'transcription_empty', 'message': 'I could not hear enough speech to transcribe that answer.'})
             return
 
         if self.interview.confirm_transcript:
@@ -189,7 +195,8 @@ class InterviewConsumer(AsyncWebsocketConsumer):
 
         except Exception as error:  # noqa: BLE001
             LOGGER.exception('Interview turn processing failed: %s', error)
-            await self.send_json({'type': 'error', 'message': 'The interviewer could not process that turn. Please continue or try again.'})
+            await self.send_json({'type': 'error', 'code': 'turn_failed',
+                'message': 'The interviewer could not process that turn. Please continue or try again.'})
             await self.send_json({'type': 'ready'})
             return
 
@@ -212,7 +219,8 @@ class InterviewConsumer(AsyncWebsocketConsumer):
 
             except Exception as error:  # noqa: BLE001
                 LOGGER.exception('Question rephrasing failed: %s', error)
-                await self.send_json({'type': 'error', 'message': 'The interviewer could not rephrase that question right now.'})
+                await self.send_json({'type': 'error', 'code': 'rephrase_failed',
+                    'message': 'The interviewer could not rephrase that question right now.'})
                 await self.send_json({'type': 'ready'})
                 return
 
@@ -304,6 +312,8 @@ class InterviewConsumer(AsyncWebsocketConsumer):
         self.interview.status = 'active'
         self.interview.started_at = timezone.now()
         self.interview.save(update_fields=['status', 'started_at'])
+        self.interview.application.status = 'interview_in_progress'
+        self.interview.application.save(update_fields=['status'])
 
     def get_turns(self):
         ''' Restore persisted role and text history when a candidate reconnects to an active interview. '''
@@ -312,4 +322,4 @@ class InterviewConsumer(AsyncWebsocketConsumer):
     @staticmethod
     def get_interview(interview_id, user_id):
         ''' Enforce candidate ownership when resolving a WebSocket interview ID. '''
-        return InterviewSession.objects.filter(id=interview_id, user_id=user_id).first()
+        return InterviewSession.objects.select_related('application__job').filter(id=interview_id, application__user_id=user_id).first()

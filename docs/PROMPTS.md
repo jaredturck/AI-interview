@@ -1,23 +1,23 @@
 # Prompts
 
-Prompts are deliberately short and stored under `prompts/`.
+Prompts are deliberately short, role-neutral and stored under `prompts/`. Occupation-specific content belongs in the Job description and evaluation rubric, not generic application prompts.
 
 ## `interviewer.txt`
 
-Defines the realtime model as a friendly, adaptive technical interviewer whose job is to gather useful evidence. The job description is appended by the application. It intentionally contains no example interview questions so the small realtime model is not anchored to specific technologies or wording.
+Defines a friendly adaptive first-stage interviewer. It gathers job-relevant evidence from the linked Job description without assuming a technical occupation or embedding example questions.
 
 ## `misuse.txt`
 
-Asks the separate misuse model to choose `CONTINUE`, `REDIRECT` or `TERMINATE`. It is intentionally forgiving of isolated unusual behavior and only terminates sustained clear misuse.
+Asks the separate misuse model to choose `CONTINUE`, `REDIRECT` or `TERMINATE`. It is forgiving of isolated confusion/tangents and terminates only sustained clear misuse.
 
 ## `evaluator_question.txt`
 
-Used independently for every line in `config/evaluation_questions.txt`. Each call focuses the evaluator's reasoning on one criterion while retaining the complete job description and transcript.
+Used once for every criterion stored with the Job. Each call assesses job-relevant evidence while retaining the complete Job description and transcript.
 
 ## `final_choice.txt`
 
-Runs one final reasoning pass over the original evidence and all completed criterion assessments.
+Runs final reasoning over the original evidence and all completed criterion assessments without assuming a particular occupation.
 
 ## `final_output.txt`
 
-Used only for the mechanically constrained application-facing `PROGRESS` or `NOT_PROGRESS` output.
+Used only for mechanically constrained `PROGRESS` or `NOT_PROGRESS` output.

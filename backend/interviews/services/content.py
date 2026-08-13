@@ -1,4 +1,4 @@
-''' Load the job description, evaluation rubric and model prompts from editable project files. '''
+''' Load staff-authored job configuration and model prompts from editable project files. '''
 
 from pathlib import Path
 
@@ -16,25 +16,15 @@ def read_prompt(name):
     ''' Resolve a named model prompt from the project prompts directory. '''
     return read_text(PROMPT_ROOT / name)
 
-def get_job_description():
-    ''' Supply the job description shared by live interviewing and final evaluation. '''
-    return read_text(JOB_DESCRIPTION_PATH)
+def get_job_configuration():
+    ''' Return the exact staff-authored description and evaluation rubric used when creating a new job. '''
+    return read_text(JOB_DESCRIPTION_PATH), read_text(EVALUATION_QUESTIONS_PATH)
 
-def get_job_title():
-    ''' Extract the role title shown in the UI from the job description heading. '''
-    for raw_line in get_job_description().splitlines():
-        line = raw_line.strip()
-
-        if line.startswith('# '):
-            return line[2:].strip()
-
-    return 'Technical role'
-
-def get_evaluation_questions():
-    ''' Load the ordered criteria that drive separate Qwen3.6 evaluation passes. '''
+def parse_evaluation_questions(text):
+    ''' Convert a stored evaluation rubric into ordered non-empty criterion lines. '''
     questions = []
 
-    for raw_line in read_text(EVALUATION_QUESTIONS_PATH).splitlines():
+    for raw_line in text.splitlines():
         line = raw_line.strip()
 
         if line:

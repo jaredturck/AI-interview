@@ -1,0 +1,300 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: adaptive-ai-interviewer 0.2\n"
+"Language: nl\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "AI Interview Admin"
+msgstr "AI-sollicitatiebeheer"
+
+msgid "AI Interview Administration"
+msgstr "AI-sollicitatiebeheer"
+
+msgid "Active"
+msgstr "Actief"
+
+msgid "Activity"
+msgstr "Activiteit"
+
+msgid "Administration"
+msgstr "Beheer"
+
+msgid "An account with that email already exists."
+msgstr "Er bestaat al een account met dit e-mailadres."
+
+msgid "Application not found."
+msgstr "Sollicitatie niet gevonden."
+
+msgid "Applications"
+msgstr "Sollicitaties"
+
+msgid "Assistant"
+msgstr "Assistent"
+
+msgid "Authentication is required."
+msgstr "Aanmelden is vereist."
+
+msgid "Cancel"
+msgstr "Annuleren"
+
+msgid "Candidate"
+msgstr "Kandidaat"
+
+msgid "Close selected jobs"
+msgstr "Geselecteerde vacatures sluiten"
+
+msgid "Closed"
+msgstr "Gesloten"
+
+msgid "Complete"
+msgstr "Voltooid"
+
+msgid "Completed"
+msgstr "Voltooid"
+
+msgid "Create and open job"
+msgstr "Vacature maken en openen"
+
+msgid "Create job"
+msgstr "Vacature maken"
+
+msgid "Create job from configuration"
+msgstr "Vacature maken vanuit configuratie"
+
+msgid "Create vacancies from the configured role, monitor candidate applications and inspect interview evidence."
+msgstr "Maak vacatures vanuit de geconfigureerde functie, volg sollicitaties en bekijk gespreksbewijs."
+
+msgid "Created"
+msgstr "Aangemaakt"
+
+msgid "Dashboard"
+msgstr "Dashboard"
+
+msgid "Data"
+msgstr "Gegevens"
+
+msgid "Evaluated"
+msgstr "Beoordeeld"
+
+msgid "Evaluating"
+msgstr "Beoordeling bezig"
+
+msgid "Evaluation failed"
+msgstr "Beoordeling mislukt"
+
+msgid "Evaluation questions"
+msgstr "Beoordelingsvragen"
+
+msgid "Filter navigation"
+msgstr "Navigatie filteren"
+
+msgid "Filter navigation items"
+msgstr "Navigatie-items filteren"
+
+msgid "Human review can be requested after automated processing is complete."
+msgstr "Na voltooiing van de automatische verwerking kan een menselijke herbeoordeling worden aangevraagd."
+
+msgid "Interview"
+msgstr "Gesprek"
+
+msgid "Interview Admin"
+msgstr "Gespreksbeheer"
+
+msgid "Interview in progress"
+msgstr "Gesprek bezig"
+
+msgid "Interview not found."
+msgstr "Gesprek niet gevonden."
+
+msgid "Interview pending"
+msgstr "Gesprek in afwachting"
+
+msgid "Interview status"
+msgstr "Gespreksstatus"
+
+msgid "Interviews"
+msgstr "Gesprekken"
+
+msgid "Interviews pending"
+msgstr "Gesprekken in afwachting"
+
+msgid "Job"
+msgstr "Vacature"
+
+msgid "Job \"%(title)s\" was created and opened for applications."
+msgstr "Vacature ‘%(title)s’ is aangemaakt en geopend voor sollicitaties."
+
+msgid "Job description"
+msgstr "Vacaturebeschrijving"
+
+msgid "Job not found."
+msgstr "Vacature niet gevonden."
+
+msgid "Jobs"
+msgstr "Vacatures"
+
+msgid "Language"
+msgstr "Taal"
+
+msgid "Manage vacancies, applications, interview evidence and candidate review requests."
+msgstr "Beheer vacatures, sollicitaties, gespreksbewijs en herbeoordelingsverzoeken van kandidaten."
+
+msgid "New vacancy"
+msgstr "Nieuwe vacature"
+
+msgid "No recent admin actions."
+msgstr "Geen recente beheeracties."
+
+msgid "Not progress"
+msgstr "Niet door"
+
+msgid "Not started"
+msgstr "Niet gestart"
+
+msgid "Open"
+msgstr "Open"
+
+msgid "Open jobs"
+msgstr "Open vacatures"
+
+msgid "Open selected jobs"
+msgstr "Geselecteerde vacatures openen"
+
+msgid "Password"
+msgstr "Wachtwoord"
+
+msgid "Pending"
+msgstr "In afwachting"
+
+msgid "Please explain what you would like reviewed."
+msgstr "Leg uit wat u opnieuw wilt laten beoordelen."
+
+msgid "Progress"
+msgstr "Door"
+
+msgid "Qwen derives a short title and optional subtitle, while the exact description and evaluation questions are stored unchanged with the job."
+msgstr "Qwen leidt een korte titel en optionele ondertitel af; de exacte beschrijving en beoordelingsvragen worden ongewijzigd bij de vacature opgeslagen."
+
+msgid "Recent actions"
+msgstr "Recente acties"
+
+msgid "Recruitment"
+msgstr "Werving"
+
+msgid "Recruitment console"
+msgstr "Wervingsconsole"
+
+msgid "Recruitment dashboard"
+msgstr "Wervingsdashboard"
+
+msgid "Recruitment data"
+msgstr "Wervingsgegevens"
+
+msgid "Recruitment overview"
+msgstr "Wervingsoverzicht"
+
+msgid "Recruitment statistics"
+msgstr "Wervingsstatistieken"
+
+msgid "Result"
+msgstr "Resultaat"
+
+msgid "Review requests"
+msgstr "Herbeoordelingsverzoeken"
+
+msgid "Sidebar"
+msgstr "Zijbalk"
+
+msgid "Sign in"
+msgstr "Inloggen"
+
+msgid "Sign out"
+msgstr "Uitloggen"
+
+msgid "Staff administration"
+msgstr "Medewerkersbeheer"
+
+msgid "Staff sign in"
+msgstr "Medewerkerslogin"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Terminated"
+msgstr "Beëindigd"
+
+msgid "The AI model could not derive job metadata. Please try again when the interview worker is available."
+msgstr "Het AI-model kon geen vacaturemetadata afleiden. Probeer opnieuw wanneer de gespreksservice beschikbaar is."
+
+msgid "The AI model returned invalid job metadata. No job was created."
+msgstr "Het AI-model gaf ongeldige vacaturemetadata terug. Er is geen vacature aangemaakt."
+
+msgid "The configured evaluation questions are empty."
+msgstr "De geconfigureerde beoordelingsvragen zijn leeg."
+
+msgid "The configured job description is empty."
+msgstr "De geconfigureerde vacaturebeschrijving is leeg."
+
+msgid "The email address is too long."
+msgstr "Het e-mailadres is te lang."
+
+msgid "The email or password is incorrect."
+msgstr "Het e-mailadres of wachtwoord is onjuist."
+
+msgid "The interview worker is currently busy. Please try again shortly."
+msgstr "De gespreksservice is momenteel bezet. Probeer het zo opnieuw."
+
+msgid "This creates an immutable recruitment snapshot from the current project configuration and opens it for candidate applications."
+msgstr "Dit maakt een onveranderlijke wervingssnapshot van de huidige projectconfiguratie en opent die voor sollicitaties."
+
+msgid "This job is no longer open for applications."
+msgstr "Deze vacature staat niet meer open voor sollicitaties."
+
+msgid "Toggle navigation"
+msgstr "Navigatie in-/uitschakelen"
+
+msgid "Use your staff account to continue."
+msgstr "Gebruik uw medewerkersaccount om door te gaan."
+
+msgid "User"
+msgstr "Gebruiker"
+
+msgid "What happens next"
+msgstr "Wat gebeurt er daarna"
+
+msgid "Your username and password did not match. Please try again."
+msgstr "Uw gebruikersnaam en wachtwoord komen niet overeen. Probeer opnieuw."
+
+msgid "Job \"%(title)s\" was created and opened for applications."
+msgstr "De vacature ‘%(title)s’ is aangemaakt en opengesteld voor sollicitaties."
+
+msgid "Job application"
+msgstr "Sollicitatie"
+
+msgid "Job applications"
+msgstr "Sollicitaties"
+
+msgid "Interview session"
+msgstr "Interviewsessie"
+
+msgid "Interview sessions"
+msgstr "Interviewsessies"
+
+msgid "Conversation turn"
+msgstr "Gespreksbeurt"
+
+msgid "Conversation turns"
+msgstr "Gespreksbeurten"
+
+msgid "Evaluation answer"
+msgstr "Beoordelingsantwoord"
+
+msgid "Evaluation answers"
+msgstr "Beoordelingsantwoorden"
+
+msgid "Human review request"
+msgstr "Verzoek om menselijke beoordeling"
+
+msgid "Human review requests"
+msgstr "Verzoeken om menselijke beoordeling"

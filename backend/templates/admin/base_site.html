@@ -1,12 +1,50 @@
 {% extends "admin/base.html" %}
+{% load i18n static %}
 
-{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title }}{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'admin/css/recruitment_admin.css' %}">
+{% endblock %}
 
 {% block branding %}
-<div id="site-name"><a href="{% url 'admin:index' %}">{{ site_header|default:_('Django administration') }}</a></div>
-{% if user.is_anonymous %}
-  {% include "admin/color_theme_toggle.html" %}
+<a class="admin-brand" href="{% url 'admin:index' %}" aria-label="{% translate 'Recruitment dashboard' %}">
+    <span class="admin-brand-mark" aria-hidden="true">AI</span>
+    <span>
+        <strong>{% translate 'Interview Admin' %}</strong>
+        <small>{% translate 'Recruitment console' %}</small>
+    </span>
+</a>
+{% endblock %}
+
+{% block usertools %}
+{% if has_permission %}
+<div id="user-tools" class="admin-user-tools">
+    {% get_current_language as CURRENT_LANGUAGE %}
+    {% get_available_languages as LANGUAGES %}
+    <form class="admin-language-form" action="{% url 'set_language' %}" method="post">
+        {% csrf_token %}
+        <input name="next" type="hidden" value="{{ request.get_full_path }}">
+        <label class="visually-hidden" for="admin-language">{% translate 'Language' %}</label>
+        <select id="admin-language" name="language" onchange="this.form.submit()">
+            {% for language_code, language_name in LANGUAGES %}
+                <option value="{{ language_code }}"{% if language_code == CURRENT_LANGUAGE %} selected{% endif %}>{{ language_name }}</option>
+            {% endfor %}
+        </select>
+    </form>
+    <span class="admin-user-name">{% firstof user.get_short_name user.get_username %}</span>
+    {% if user.has_usable_password %}<a href="{% url 'admin:password_change' %}">{% translate 'Password' %}</a>{% endif %}
+    <form id="logout-form" method="post" action="{% url 'admin:logout' %}">
+        {% csrf_token %}
+        <button type="submit">{% translate 'Sign out' %}</button>
+    </form>
+</div>
 {% endif %}
 {% endblock %}
 
-{% block nav-global %}{% endblock %}
+{% block nav-global %}
+{% if has_permission %}
+<a class="admin-header-action" href="{% url 'admin:create_job_from_configuration' %}">{% translate 'Create job' %}</a>
+{% endif %}
+{% endblock %}

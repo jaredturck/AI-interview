@@ -1,18 +1,19 @@
 # Deployment
 
-`npm run dev` uses Django's development server and Vite and is not a production deployment command.
+`npm run dev` starts Django's development server and Vite. It is not a production deployment command.
 
 For production:
 
-1. set a strong `DJANGO_SECRET_KEY`;
-2. set `DJANGO_DEBUG=false`;
-3. set production `DJANGO_ALLOWED_HOSTS` and `DJANGO_CSRF_TRUSTED_ORIGINS`;
-4. run `npm run build`;
-5. run `python backend/manage.py migrate` when migrations are pending;
-6. serve Django with a production ASGI server behind TLS;
-7. serve `frontend/dist/` from the chosen web server/CDN with SPA fallback routing and proxy `/api` and `/ws` to Django;
-8. keep ffmpeg, CUDA, PyTorch and the required Qwen weights available on the GPU host.
+1. configure a strong `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=false`, production allowed hosts and trusted CSRF origins;
+2. run `npm install` and `npm run build`;
+3. run `python backend/manage.py migrate`;
+4. serve Django with a production ASGI server behind TLS;
+5. serve `frontend/dist/` from the web server/CDN with SPA fallback to `index.html` for candidate routes;
+6. proxy `/api` and `/admin` to Django and `/ws` to Django/ASGI with WebSocket upgrade support;
+7. keep ffmpeg, CUDA, PyTorch and required Qwen weights available on the GPU host.
 
-The current inference runtime is intentionally single-worker. Run one Django/ASGI application process against one dual-3090 model worker unless the inference architecture is redesigned. Multiple independent web worker processes would each create their own model runtime and are not appropriate for this V1 deployment.
+The inference runtime is intentionally single-worker. Do not scale the Django/ASGI process count on one GPU host as though model state were stateless; each independent process would create its own model runtime.
 
-Login/signup rate limiting should be enforced at the reverse proxy or another dedicated production boundary before exposing the site publicly.
+The React language selector writes Django's `django_language` cookie so custom API/admin-compatible translation selection can use the same preference. Django admin also has its own language selector.
+
+Rate-limit login/signup and other abuse-prone public endpoints at the reverse proxy or another agreed production boundary.

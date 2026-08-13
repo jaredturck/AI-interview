@@ -1,9 +1,9 @@
 ''' Map authenticated interview WebSockets to the Django Channels consumer. '''
 
-from django.urls import re_path
+from django.urls import path
 
 from interviews.consumers import InterviewConsumer
 
 websocket_urlpatterns = [
-    re_path(r'ws/interviews/(?P<interview_id>[0-9a-f-]+)/$', InterviewConsumer.as_asgi())
+    path('ws/interviews/<uuid:interview_id>/', InterviewConsumer.as_asgi())
 ]

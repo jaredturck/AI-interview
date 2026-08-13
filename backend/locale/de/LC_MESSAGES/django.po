@@ -1,0 +1,300 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: adaptive-ai-interviewer 0.2\n"
+"Language: de\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "AI Interview Admin"
+msgstr "KI-Interview-Administration"
+
+msgid "AI Interview Administration"
+msgstr "KI-Interview-Administration"
+
+msgid "Active"
+msgstr "Aktiv"
+
+msgid "Activity"
+msgstr "Aktivität"
+
+msgid "Administration"
+msgstr "Administration"
+
+msgid "An account with that email already exists."
+msgstr "Ein Konto mit dieser E-Mail-Adresse existiert bereits."
+
+msgid "Application not found."
+msgstr "Bewerbung nicht gefunden."
+
+msgid "Applications"
+msgstr "Bewerbungen"
+
+msgid "Assistant"
+msgstr "Assistent"
+
+msgid "Authentication is required."
+msgstr "Eine Anmeldung ist erforderlich."
+
+msgid "Cancel"
+msgstr "Abbrechen"
+
+msgid "Candidate"
+msgstr "Bewerber"
+
+msgid "Close selected jobs"
+msgstr "Ausgewählte Stellen schließen"
+
+msgid "Closed"
+msgstr "Geschlossen"
+
+msgid "Complete"
+msgstr "Abgeschlossen"
+
+msgid "Completed"
+msgstr "Abgeschlossen"
+
+msgid "Create and open job"
+msgstr "Stelle erstellen und öffnen"
+
+msgid "Create job"
+msgstr "Stelle erstellen"
+
+msgid "Create job from configuration"
+msgstr "Stelle aus Konfiguration erstellen"
+
+msgid "Create vacancies from the configured role, monitor candidate applications and inspect interview evidence."
+msgstr "Erstellen Sie Stellen aus der konfigurierten Rolle, verfolgen Sie Bewerbungen und prüfen Sie Interviewnachweise."
+
+msgid "Created"
+msgstr "Erstellt"
+
+msgid "Dashboard"
+msgstr "Übersicht"
+
+msgid "Data"
+msgstr "Daten"
+
+msgid "Evaluated"
+msgstr "Bewertet"
+
+msgid "Evaluating"
+msgstr "Bewertung läuft"
+
+msgid "Evaluation failed"
+msgstr "Bewertung fehlgeschlagen"
+
+msgid "Evaluation questions"
+msgstr "Bewertungsfragen"
+
+msgid "Filter navigation"
+msgstr "Navigation filtern"
+
+msgid "Filter navigation items"
+msgstr "Navigationseinträge filtern"
+
+msgid "Human review can be requested after automated processing is complete."
+msgstr "Nach Abschluss der automatisierten Verarbeitung kann eine menschliche Prüfung angefordert werden."
+
+msgid "Interview"
+msgstr "Interview"
+
+msgid "Interview Admin"
+msgstr "Interview-Administration"
+
+msgid "Interview in progress"
+msgstr "Interview läuft"
+
+msgid "Interview not found."
+msgstr "Interview nicht gefunden."
+
+msgid "Interview pending"
+msgstr "Interview ausstehend"
+
+msgid "Interview status"
+msgstr "Interviewstatus"
+
+msgid "Interviews"
+msgstr "Interviews"
+
+msgid "Interviews pending"
+msgstr "Ausstehende Interviews"
+
+msgid "Job"
+msgstr "Stelle"
+
+msgid "Job \"%(title)s\" was created and opened for applications."
+msgstr "Die Stelle „%(title)s“ wurde erstellt und für Bewerbungen geöffnet."
+
+msgid "Job description"
+msgstr "Stellenbeschreibung"
+
+msgid "Job not found."
+msgstr "Stelle nicht gefunden."
+
+msgid "Jobs"
+msgstr "Stellen"
+
+msgid "Language"
+msgstr "Sprache"
+
+msgid "Manage vacancies, applications, interview evidence and candidate review requests."
+msgstr "Verwalten Sie Stellen, Bewerbungen, Interviewnachweise und Prüfungsanfragen von Bewerbern."
+
+msgid "New vacancy"
+msgstr "Neue Stelle"
+
+msgid "No recent admin actions."
+msgstr "Keine aktuellen Verwaltungsaktionen."
+
+msgid "Not progress"
+msgstr "Kein Weiterkommen"
+
+msgid "Not started"
+msgstr "Nicht begonnen"
+
+msgid "Open"
+msgstr "Offen"
+
+msgid "Open jobs"
+msgstr "Offene Stellen"
+
+msgid "Open selected jobs"
+msgstr "Ausgewählte Stellen öffnen"
+
+msgid "Password"
+msgstr "Passwort"
+
+msgid "Pending"
+msgstr "Ausstehend"
+
+msgid "Please explain what you would like reviewed."
+msgstr "Bitte erläutern Sie, was geprüft werden soll."
+
+msgid "Progress"
+msgstr "Weiterkommen"
+
+msgid "Qwen derives a short title and optional subtitle, while the exact description and evaluation questions are stored unchanged with the job."
+msgstr "Qwen leitet einen kurzen Titel und optionalen Untertitel ab; die genaue Beschreibung und die Bewertungsfragen werden unverändert bei der Stelle gespeichert."
+
+msgid "Recent actions"
+msgstr "Letzte Aktionen"
+
+msgid "Recruitment"
+msgstr "Recruiting"
+
+msgid "Recruitment console"
+msgstr "Recruiting-Konsole"
+
+msgid "Recruitment dashboard"
+msgstr "Recruiting-Übersicht"
+
+msgid "Recruitment data"
+msgstr "Recruiting-Daten"
+
+msgid "Recruitment overview"
+msgstr "Recruiting-Überblick"
+
+msgid "Recruitment statistics"
+msgstr "Recruiting-Statistiken"
+
+msgid "Result"
+msgstr "Ergebnis"
+
+msgid "Review requests"
+msgstr "Prüfanfragen"
+
+msgid "Sidebar"
+msgstr "Seitenleiste"
+
+msgid "Sign in"
+msgstr "Anmelden"
+
+msgid "Sign out"
+msgstr "Abmelden"
+
+msgid "Staff administration"
+msgstr "Mitarbeiterverwaltung"
+
+msgid "Staff sign in"
+msgstr "Mitarbeiteranmeldung"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Terminated"
+msgstr "Beendet"
+
+msgid "The AI model could not derive job metadata. Please try again when the interview worker is available."
+msgstr "Das KI-Modell konnte keine Stellenmetadaten ableiten. Versuchen Sie es erneut, wenn der Interviewdienst verfügbar ist."
+
+msgid "The AI model returned invalid job metadata. No job was created."
+msgstr "Das KI-Modell hat ungültige Stellenmetadaten zurückgegeben. Es wurde keine Stelle erstellt."
+
+msgid "The configured evaluation questions are empty."
+msgstr "Die konfigurierten Bewertungsfragen sind leer."
+
+msgid "The configured job description is empty."
+msgstr "Die konfigurierte Stellenbeschreibung ist leer."
+
+msgid "The email address is too long."
+msgstr "Die E-Mail-Adresse ist zu lang."
+
+msgid "The email or password is incorrect."
+msgstr "E-Mail-Adresse oder Passwort ist falsch."
+
+msgid "The interview worker is currently busy. Please try again shortly."
+msgstr "Der Interviewdienst ist derzeit beschäftigt. Bitte versuchen Sie es in Kürze erneut."
+
+msgid "This creates an immutable recruitment snapshot from the current project configuration and opens it for candidate applications."
+msgstr "Dadurch wird aus der aktuellen Projektkonfiguration ein unveränderlicher Recruiting-Schnappschuss erstellt und für Bewerbungen geöffnet."
+
+msgid "This job is no longer open for applications."
+msgstr "Diese Stelle ist nicht mehr für Bewerbungen geöffnet."
+
+msgid "Toggle navigation"
+msgstr "Navigation ein-/ausblenden"
+
+msgid "Use your staff account to continue."
+msgstr "Verwenden Sie Ihr Mitarbeiterkonto, um fortzufahren."
+
+msgid "User"
+msgstr "Benutzer"
+
+msgid "What happens next"
+msgstr "Wie es weitergeht"
+
+msgid "Your username and password did not match. Please try again."
+msgstr "Benutzername und Passwort stimmen nicht überein. Bitte versuchen Sie es erneut."
+
+msgid "Job \"%(title)s\" was created and opened for applications."
+msgstr "Die Stelle „%(title)s“ wurde erstellt und für Bewerbungen geöffnet."
+
+msgid "Job application"
+msgstr "Bewerbung"
+
+msgid "Job applications"
+msgstr "Bewerbungen"
+
+msgid "Interview session"
+msgstr "Interviewsitzung"
+
+msgid "Interview sessions"
+msgstr "Interviewsitzungen"
+
+msgid "Conversation turn"
+msgstr "Gesprächsbeitrag"
+
+msgid "Conversation turns"
+msgstr "Gesprächsbeiträge"
+
+msgid "Evaluation answer"
+msgstr "Bewertungsantwort"
+
+msgid "Evaluation answers"
+msgstr "Bewertungsantworten"
+
+msgid "Human review request"
+msgstr "Antrag auf menschliche Prüfung"
+
+msgid "Human review requests"
+msgstr "Anträge auf menschliche Prüfung"
