@@ -1,68 +1,62 @@
+''' Retrieve short company context for candidate questions. '''
 import re
 from operator import itemgetter
 
 from rank_bm25 import BM25Okapi
 
 from ai_interviewer.runtime_config import RUNTIME
-from interviews.models import CompanyDocument
+from interviews.services.content import get_company_documents
 
-TOKEN_PATTERN = re.compile(r"[\w'-]+", re.UNICODE)
+TOKEN_PATTERN = re.compile(r'[\w\'-]+', re.UNICODE)
 COMPANY_QUERY_MARKERS = [
-    "your company",
-    "your team",
-    "your backend",
-    "your frontend",
-    "your stack",
-    "you use",
-    "do you use",
-    "does your",
-    "company use",
-    "company work",
-    "the role",
-    "this role",
-    "working there",
+    'your company', 'your team', 'your backend', 'your frontend', 'your stack', 'you use', 'do you use', 'does your',
+    'company use', 'company work', 'the role', 'this role', 'working there'
 ]
 
-
 def tokenize(text):
+    ''' Convert text into simple lowercase BM25 tokens. '''
     return [token.lower() for token in TOKEN_PATTERN.findall(text)]
 
-
 def company_chunks():
+    ''' Split configured company documents into retrieval paragraphs. '''
     chunks = []
-    for document in CompanyDocument.objects.all():
-        paragraphs = [part.strip() for part in document.content.split("\n\n") if part.strip()]
+
+    for document in get_company_documents():
+        paragraphs = [part.strip() for part in document['content'].split('\n\n') if part.strip()]
+
         for paragraph in paragraphs:
-            chunks.append((document.title, paragraph))
+            chunks.append((document['title'], paragraph))
+
     return chunks
 
-
 def candidate_asks_about_company(query):
+    ''' Return whether a candidate message appears to ask about the company. '''
     lowered = query.lower()
     return any(marker in lowered for marker in COMPANY_QUERY_MARKERS)
 
-
 def retrieve_company_context(query):
+    ''' Return the most relevant configured company paragraphs for a query. '''
     if not query.strip() or not candidate_asks_about_company(query):
-        return ""
+        return ''
 
     chunks = company_chunks()
+
     if not chunks:
-        return ""
+        return ''
 
     corpus = [tokenize(text) for _, text in chunks]
     index = BM25Okapi(corpus)
     scores = index.get_scores(tokenize(query))
     ranked = sorted(zip(scores, chunks), key=itemgetter(0), reverse=True)
-
-    minimum_score = RUNTIME["rag"]["minimum_score"]
-    max_chunks = RUNTIME["rag"]["max_chunks"]
+    minimum_score = RUNTIME['rag']['minimum_score']
+    max_chunks = RUNTIME['rag']['max_chunks']
     selected = []
 
     for score, chunk in ranked:
         if score < minimum_score or len(selected) >= max_chunks:
             continue
-        title, text = chunk
-        selected.append(f"{title}: {text}")
 
-    return "\n\n".join(selected)
+        title, text = chunk
+        selected.append(f'{title}: {text}')
+
+    return '\n\n'.join(selected)

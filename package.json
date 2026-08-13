@@ -1,0 +1,22 @@
+{
+    "name": "adaptive-ai-interviewer",
+    "private": true,
+    "version": "0.1.0",
+    "type": "module",
+    "scripts": {
+        "dev": "concurrently --kill-others --names backend,frontend \"./.venv/bin/python backend/manage.py runserver 127.0.0.1:8000\" \"vite\"",
+        "build": "vite build",
+        "test": "./.venv/bin/python backend/manage.py check && ./.venv/bin/python -m pytest backend && npm run build"
+    },
+    "dependencies": {
+        "react": "^19.2.8",
+        "react-dom": "^19.2.8"
+    },
+    "devDependencies": {
+        "@tailwindcss/vite": "^4.3.3",
+        "@vitejs/plugin-react": "^6.0.4",
+        "concurrently": "^10.0.4",
+        "tailwindcss": "^4.3.3",
+        "vite": "^8.2.0"
+    }
+}

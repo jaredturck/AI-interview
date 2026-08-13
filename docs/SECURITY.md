@@ -1,54 +1,31 @@
-# Security review
+# Security
 
-## Controls implemented
+## Session access
 
-- Django CSRF protection protects HTTP mutations.
-- WebSockets are origin-checked with `AllowedHostsOriginValidator`.
-- Each interview receives a cryptographically random access token; only its SHA-256 hash is persisted.
-- Status and candidate-review endpoints require that interview token.
-- Candidate text is length-limited server-side.
-- Microphone uploads are size-limited before decoding.
-- Raw microphone audio is decoded in memory and not persisted by the application.
-- Interviews have a hard maximum duration.
-- The Django admin exposes transcript/evaluation/review records read-only to reduce accidental evidence alteration.
-- Production-mode Django enables secure cookies, HTTPS redirect, HSTS, clickjacking denial and content-type sniffing protection.
+Each interview receives a random browser access token. Only its SHA-256 hash is stored. Status and review endpoints require the matching token.
 
-## AI safety boundaries
+WebSockets are checked against Django's allowed-host origin policy before interview authentication.
 
-Immediate candidate input is checked by Qwen3Guard before the interviewer can answer it. Interviewer output is checked again before it reaches TTS.
+## AI safety
 
-A separate misuse monitor sees the accumulated transcript and can `CONTINUE`, `REDIRECT` or `TERMINATE`. Its prompt requires strong sustained evidence for termination rather than treating a single strange interaction as abuse.
+Candidate input is checked by Qwen3Guard before the interviewer responds. Generated interviewer text is checked again before speech synthesis.
 
-The final evaluator is separately prompted to treat all transcript text as interview evidence rather than instructions. This limits a candidate's ability to place instructions in the transcript that target the later reasoning model.
+The separate misuse model watches the accumulated transcript for sustained abuse of the interview process. It can request a redirect or end the live interview, but it cannot decide whether the candidate progresses.
 
-The final outcome is generated through token-level constrained decoding rather than trusting the model to follow an output-format instruction.
+Transcript content is always treated as untrusted candidate content by the final evaluator rather than as model instructions.
 
-## Lifecycle and capacity
+## Resource limits
 
-The active interview retains ownership of the GPU worker until evaluation atomically takes over. This avoids a race where another candidate could reserve the live models between the closing turn and evaluator load.
+The backend limits text size, uploaded audio bytes, total interview duration and concurrent ownership of the single dual-GPU worker.
 
-Unexpected disconnects receive a configurable reconnect grace period (120 seconds by default). If no connection returns, the interview is closed and evaluated so an abandoned browser cannot reserve the GPU worker until the full interview deadline. Timeout paths re-read current database/runtime state before closing so a stale socket cannot overwrite a session that subsequently completed or reconnected.
+Disconnected interviews receive a short reconnect window before the backend closes and evaluates the session.
 
-## Operational failures
+## Candidate decisions
 
-`PROGRESS` and `NOT_PROGRESS` remain the only candidate outcomes. `evaluation_failed` is an operational status used only when the evaluator cannot complete; the UI then offers the existing candidate-requested human review route rather than silently presenting a hiring outcome that was never produced. `run_backend.sh` also recovers evaluations interrupted by a previous process restart into this status.
+Only the final evaluator returns `PROGRESS` or `NOT_PROGRESS`. Infrastructure failure uses the separate operational status `evaluation_failed` rather than fabricating a candidate outcome.
 
-## Production work still required
+Candidates can submit a human-review request through the website after automated processing.
 
-- Replace the example secret/configuration.
-- Terminate TLS at a hardened reverse proxy.
-- Add HTTP and WebSocket rate limits.
-- Use PostgreSQL for production persistence.
-- Define access controls and retention/deletion for recruitment data.
-- Keep Django admin behind appropriate authentication/network restrictions.
-- Log operational failures without logging raw sensitive candidate text unnecessarily.
-- Patch dependencies and model packages as part of a controlled release process.
-- Red-team content moderation, prompt injection, misuse thresholds and unusual legitimate communication.
-- Perform dependency/SBOM/vulnerability scanning in the deployment environment.
-- Obtain appropriate legal/data-protection review before real hiring use.
+## Production configuration
 
-## Threat-model assumptions
-
-V1 assumes one trusted organisation controls the job description, prompts and company RAG documents. Those files/admin records are privileged configuration and must not be writable by candidates.
-
-The system is designed for one active interview per dual-GPU worker. Running multiple ASGI processes against the same GPUs is unsupported and can defeat process-local capacity control.
+Create `config/runtime.toml` with a production secret key, production hosts/origins and `debug = false`. Serve Django and the built frontend behind TLS and a production ASGI deployment rather than Django's development server.

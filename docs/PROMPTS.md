@@ -1,15 +1,21 @@
-# Prompt design
+# Prompts
 
-The live interviewer prompt is intentionally short. Its job is to gather useful technical information through an adaptive conversation, not to perform safety classification or candidate evaluation.
+Prompts are deliberately stored as short editable text files under `prompts/`.
 
-The job description is appended to the live system context on every generation. Relevant company BM25 retrieval is appended only when it matches the latest candidate turn. Rephrase, redirect, safety and closing instructions are temporary turn-specific additions rather than permanent prompt bulk.
+## Realtime interviewer
 
-The content guard is external to the interviewer prompt and checks both candidate input and generated interviewer output.
+`interviewer.txt` defines the live model as a brief, adaptive evidence-gathering technical interviewer. The job description is appended at runtime from `config/job_description.md`.
 
-The misuse monitor is a separate model with a narrow `CONTINUE` / `REDIRECT` / `TERMINATE` choice. It is deliberately forgiving: unusual communication, isolated tangents or confusion should not by themselves end an interview.
+The prompt intentionally avoids example interview questions so a small model is not unnecessarily anchored to particular technologies or wording.
 
-The final evaluator does not receive the whole rubric as a single reasoning request. Every line in `config/evaluation_questions.txt` becomes a separate reasoning pass over the same job description and complete transcript. The concise criterion assessments then feed a separate synthesis pass.
+## Misuse monitor
 
-The final choice prompt is intentionally small. Output validity is enforced in code by constrained decoding to `PROGRESS` or `NOT_PROGRESS`, so the prompt does not need formatting examples or a large output contract.
+`misuse.txt` asks the separate misuse model to choose `CONTINUE`, `REDIRECT` or `TERMINATE`. The monitor is intentionally forgiving of isolated unusual behaviour and only terminates sustained clear misuse.
 
-All evaluator prompts explicitly treat transcript text as candidate interview content rather than instructions to the evaluator.
+## Evaluator
+
+`evaluator_question.txt` is used independently for every line in `config/evaluation_questions.txt`.
+
+`evaluator_synthesis.txt` combines those focused assessments.
+
+`final_choice.txt` drives a final thinking pass over the complete evidence. `final_output.txt` is used only for the constrained application-facing `PROGRESS` or `NOT_PROGRESS` decision.

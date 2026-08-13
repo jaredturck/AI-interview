@@ -1,68 +1,34 @@
-# Accessibility checklist
+# Accessibility
 
-The design target is WCAG 2.2 AA plus an interview-specific principle: measure relevant technical evidence rather than a candidate's ability to cope with one communication format.
+The interview is designed so speech is never the only way to answer and audio is never the only way to receive a question.
 
-## Input and output
+## Candidate input
 
-- Voice input is optional; typed responses use the same interview path.
-- Interviewer speech is duplicated as visible text.
-- Interviewer voice can be muted while text remains fully usable.
-- The current question remains visible in the transcript.
-- Optional transcription confirmation lets a candidate correct ASR errors before model processing.
-- Replay and rephrase controls do not require the candidate to verbally request an adjustment.
-- Speech playback speed is adjustable client-side.
-- Microphone failure never blocks typed participation.
+Candidates can:
 
-## Timing and speech
+- speak through the microphone;
+- type responses;
+- switch between speaking and typing during the same interview;
+- optionally review and edit ASR text before it becomes an interview turn.
 
-V1 deliberately uses explicit press-to-record / **Finish speaking** controls rather than ending a turn after a short silence. A candidate can pause for as long as they need inside the speaking turn, subject only to the overall interview time limit.
+## Interviewer output
 
-The **I need a moment** control pauses interviewer audio and visibly marks the conversation as paused.
+Every interviewer response is displayed as text and synthesized as speech. Candidates can mute interviewer speech without losing the written question.
 
-## Interaction
+The interface also provides:
 
-- Native `button`, `input`, `select` and `textarea` elements are used.
-- Every actionable control has visible keyboard focus.
-- Primary control heights are at least approximately 44 CSS pixels.
-- Interviewer responses are announced through a polite ARIA live region after complete text arrives.
-- Dynamic interview/evaluation status is exposed through status/live regions.
-- Focus is not automatically stolen when new transcript messages appear.
-- The interface does not use colour as the only status signal.
-- Reduced-motion preferences disable non-essential animation/transitions.
-- Browser text scaling/zoom is supported by responsive layouts rather than fixed-size panels.
+- replay of the latest spoken question;
+- question rephrasing;
+- an `I need a moment` control;
+- adjustable speech playback speed;
+- persistent transcript/captions;
+- keyboard-operable controls;
+- semantic form labels and status regions for assistive technology;
+- visible keyboard focus;
+- reduced-motion support.
 
 ## Interview behaviour
 
-The interviewer is instructed to:
+The realtime prompt asks the model to adapt question specificity to the candidate. Broad questions can become narrower and more concrete when that helps the candidate communicate, while detailed answers can be explored naturally.
 
-- ask one clear question at a time;
-- use the job description as direction rather than a rigid questionnaire;
-- follow productive technical threads while they continue yielding useful information;
-- make questions simpler, narrower or more concrete when the current style is not producing useful answers;
-- allow detailed candidates to explore relevant work deeply;
-- keep its own turns short so the candidate has conversational space.
-
-This adaptation is based on the success of the current conversation, not on diagnosing or labelling the candidate.
-
-## Candidate agency
-
-Before starting, the interface explains the automated interview/initial decision, voice/text options, transcript handling and an external recruitment contact for adjustments not covered by the interface.
-
-After the interview, the candidate can request human review and explain what they believe went wrong. That mechanism is separate from the AI decision itself.
-
-## Before production
-
-Test with:
-
-- keyboard-only navigation;
-- NVDA/JAWS/VoiceOver or other representative screen readers;
-- browser zoom/text scaling at 200%;
-- voice muted with text-only interviewer output;
-- text-only candidate participation;
-- speech differences and varied accents;
-- noisy/low-quality microphones;
-- deliberately long pauses during spoken answers;
-- candidates who prefer broad questions and candidates who need concrete questions;
-- real disabled and neurodivergent participants.
-
-Automated accessibility scanners are useful but cannot replace those tests.
+The goal is to gather technical information rather than impose one fixed interview communication style.

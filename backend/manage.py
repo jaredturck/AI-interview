@@ -1,7 +1,9 @@
 #!/usr/bin/env python
+''' Django management entry point. '''
+
 import os
 
 from django.core.management import execute_from_command_line
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "ai_interviewer.settings")
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ai_interviewer.settings')
 execute_from_command_line()

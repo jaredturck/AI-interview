@@ -1,87 +1,54 @@
 # Architecture
 
-## Responsibilities
+## Browser to backend
 
-The project uses three logical AI subsystems.
+React captures candidate microphone audio with `MediaRecorder` and sends ordered audio chunks over the interview WebSocket. Django decodes the completed utterance to 16 kHz mono PCM with ffmpeg and sends it to Qwen3-ASR.
 
-### 1. Realtime interviewer
+Typed candidate messages enter the same interview pipeline after skipping ASR.
 
-- Browser microphone or typed text enters the same interview session.
-- Spoken input is decoded to 16 kHz mono PCM and transcribed by Qwen3-ASR-1.7B.
-- The candidate turn is moderated before generation.
-- The misuse monitor evaluates the accumulated transcript.
-- Qwen3.5-9B generates a short adaptive interviewer turn.
-- The generated turn is moderated before speech synthesis.
-- Qwen3-TTS-0.6B generates the audible interviewer response.
-- The assistant text is always sent to the browser independently of audio playback.
+The interviewer returns short text responses. The text is sent to the browser immediately and Qwen3-TTS produces a WAV response for playback.
 
-The interviewer gathers evidence; it never decides progression.
+## Live interview subsystem
 
-### 2. Safety and misuse
+The live subsystem contains:
 
-Qwen3Guard-Gen-4B handles immediate content safety on candidate input and interviewer output.
+- `Qwen/Qwen3-ASR-1.7B` for speech recognition through Hugging Face Transformers.
+- `Qwen/Qwen3.5-9B` for the short adaptive interviewer with thinking disabled.
+- `Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice` for interviewer speech.
+- `Qwen/Qwen3Guard-Gen-4B` for immediate content safety.
+- `Qwen/Qwen3.5-4B` for transcript-level misuse monitoring with thinking disabled.
 
-Qwen3.5-4B separately evaluates the transcript as one of three actions:
+The job description guides the interviewer but does not define a rigid question sequence. Company questions can retrieve a few relevant paragraphs from `config/company/`.
 
-- `CONTINUE`
-- `REDIRECT`
-- `TERMINATE`
+## Transcript
 
-The misuse prompt deliberately requires sustained, strong evidence before termination. A redirect only injects a temporary instruction into the next interviewer generation. A termination produces a normal friendly closing turn and ends the live connection; it does not itself create a candidate result.
+Each confirmed candidate or interviewer message is stored as one ordered text turn. Speech and typed input become the same text evidence after transcription/confirmation.
 
-### 3. Final evaluator
+The application does not create hidden candidate personality or disability profiles.
 
-Qwen3.6-27B runs only after the live interview has ended.
+## Final evaluation subsystem
 
-For each role-specific rubric question:
+When the interview ends, the live models are unloaded and `Qwen/Qwen3.6-27B` is loaded in INT8 across both GPUs.
 
-```text
-job description + full transcript + one criterion
-                       ↓
-                 reasoning pass
-                       ↓
-              concise assessment
-```
+Each line in `config/evaluation_questions.txt` receives its own reasoning pass with the complete job description and transcript. Those assessments are then synthesized. A final dedicated reasoning pass considers the whole record before a constrained decoding pass returns exactly `PROGRESS` or `NOT_PROGRESS`.
 
-After all assessments:
+The evaluation model is the only subsystem that decides progression.
+
+## Configuration
+
+Role and company content is file-backed:
 
 ```text
-job description + transcript + all assessments
-                       ↓
-                  synthesis pass
-                       ↓
-                    synthesis
-                       ↓
-       constrained non-thinking choice pass
-                       ↓
-             PROGRESS / NOT_PROGRESS
+config/job_description.md
+config/evaluation_questions.txt
+config/company/*.md
 ```
 
-Raw reasoning text inside model thinking blocks is discarded rather than persisted.
+Runtime interview state is database-backed:
 
-## Application services
-
-Django owns durable state and orchestration. Model code sits behind `ModelRuntime` / model-suite methods so mock and real inference use the same application paths.
-
-The WebSocket owns the live interaction protocol. HTTP is used for bootstrap, interview creation, result/status polling and candidate review submissions.
-
-## Capacity model
-
-One Python ASGI process owns one dual-GPU worker. Capacity is process-local by design in V1.
-
-`ModelRuntime` provides an atomic handoff from the active interview to final evaluation so a second interview cannot claim the GPUs between the closing turn and evaluator startup.
-
-The frontend polls `/api/bootstrap/` while the worker is busy and enables new interviews after capacity returns.
-
-## Persistence
-
-The core transcript table stores only:
-
-- interview reference;
-- `user` or `assistant` role;
-- text;
-- timestamp.
-
-Candidate name/email are optional session fields. Evaluation answers and human-review requests are separate records because they belong to later workflow stages rather than conversation profiling.
-
-Raw microphone audio is not persisted by the application.
+```text
+InterviewSession
+ConversationTurn
+EvaluationAnswer
+HumanReviewRequest
+```

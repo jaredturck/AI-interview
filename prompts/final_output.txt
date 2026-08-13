@@ -1,0 +1,1 @@
+Return the final stage-one outcome from the supplied decision analysis.

@@ -39,6 +39,7 @@ tts_instruct = "Speak clearly, calmly, warmly, and at a natural interview pace."
 seed = 3407
 question_max_tokens = 2048
 synthesis_max_tokens = 4096
+final_reasoning_max_tokens = 4096
 
 [rag]
 max_chunks = 3

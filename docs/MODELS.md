@@ -1,62 +1,38 @@
-# Model runtime
+# Models
 
-## Live interview
+## Realtime models
 
-| Role | Model | Default device | Precision |
-|---|---|---|---|
-| ASR | Qwen/Qwen3-ASR-1.7B | cuda:1 | BF16 |
+| Purpose | Model | Target | Precision |
+| --- | --- | --- | --- |
+| Speech recognition | Qwen/Qwen3-ASR-1.7B | cuda:1 | BF16 |
 | Interviewer | Qwen/Qwen3.5-9B | cuda:0 | INT8 |
-| TTS | Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice | cuda:0 | BF16 |
-| Content guard | Qwen/Qwen3Guard-Gen-4B | cuda:1 | INT8 |
-| Misuse monitor | Qwen/Qwen3.5-4B | cuda:1 | INT8 |
+| Text-to-speech | Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice | cuda:0 | BF16 |
+| Content safety | Qwen/Qwen3Guard-Gen-4B | cuda:1 | INT8 |
+| Misuse monitoring | Qwen/Qwen3.5-4B | cuda:1 | INT8 |
 
-The interviewer and misuse models run with thinking disabled. Interviewer output is intentionally short.
+The interviewer and misuse model run with thinking disabled to keep realtime latency low.
 
-ASR uses automatic language detection on each completed spoken turn. The setup language is the interviewer's default language rather than a hard lock on candidate speech.
-
-TTS is called with automatic language selection. The included adapter synthesizes the complete short interviewer reply to a WAV in memory; it does not yet expose Qwen3-TTS incremental streaming to the browser.
+Qwen3-ASR uses Qwen's official `qwen-asr` package with its Hugging Face Transformers backend. Qwen3-TTS uses Qwen's official `qwen-tts` wrapper.
 
 ## Final evaluator
 
-After the live conversation and closing audio complete, Qwen/Qwen3.6-27B loads at INT8 with `device_map="auto"` and memory limits across both GPUs.
+`Qwen/Qwen3.6-27B` runs in INT8 with thinking enabled after the live interview has finished. The evaluator receives both RTX 3090 GPUs.
 
-Each evaluation question receives a separate thinking generation. The stored assessment is only the text after a Qwen thinking block; raw chain-of-thought is not persisted.
+Evaluation is deliberately multi-pass:
 
-The evaluator then performs a separate synthesis reasoning pass. A final non-thinking generation uses `ChoiceLogitsProcessor` to constrain decoding to exactly one of:
+1. one extended reasoning pass for every configured evaluation question;
+2. one synthesis pass across the criterion assessments;
+3. one fresh final-decision reasoning pass;
+4. one constrained decoding pass returning `PROGRESS` or `NOT_PROGRESS`.
 
-- `PROGRESS`
-- `NOT_PROGRESS`
+The constrained output prevents application logic from depending on free-form parsing.
 
-Output validity therefore does not depend on parsing an unconstrained prose answer after generation.
+## Loading lifecycle
 
-The evaluator seed is fixed in runtime configuration to reduce unnecessary run-to-run variance while retaining thinking-mode sampling.
+Mock mode loads no real weights.
 
-## Lifecycle
+Real mode loads the live suite before the interview worker is used. When evaluation begins the live suite is released before the 27B evaluator is loaded. The live suite is restored after evaluation finishes.
 
-1. real-mode ASGI startup preloads live models;
-2. one interview reserves the GPU worker;
-3. the closing text/audio is generated;
-4. evaluation atomically takes worker ownership;
-5. live model references are released and CUDA cache is cleared;
-6. evaluator loads across both GPUs;
-7. criterion passes, synthesis and final choice run;
-8. evaluator unloads;
-9. live models reload;
-10. capacity reopens.
+## Qwen speech dependency compatibility
 
-This deliberately trades throughput for final evaluator quality.
-
-## Dependency versions
-
-The real-model requirements pin the Qwen integration packages used by the adapters (`qwen-asr==0.0.6`, `qwen-tts==0.1.1`) and Transformers 5.15.0. The remaining CUDA packages are constrained to compatible major versions so the target machine can select an appropriate PyTorch/CUDA wheel.
-
-## Hardware validation still required
-
-The real model suite must be benchmarked on the target dual-3090 workstation before production use. In particular verify:
-
-- aggregate live-model VRAM;
-- INT8 bitsandbytes compatibility with the installed NVIDIA/CUDA stack;
-- 27B evaluator placement without unintended CPU offload;
-- long-context evaluator memory use;
-- ASR/TTS latency;
-- evaluator quality against labelled candidate examples.
+`qwen-asr` 0.0.6 pins Transformers 4.57.6 and `qwen-tts` 0.1.1 pins Transformers 4.57.3. The project uses Transformers 4.57.6 because the ASR package and the Qwen3.5/Qwen3.6 model family run on that Transformers generation. Install `qwen-tts==0.1.1` with `--no-deps` after the root requirements so its narrower package metadata does not downgrade the shared runtime.

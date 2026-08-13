@@ -20,7 +20,6 @@ export default function SetupScreen({bootstrap, on_start, error}) {
         event.preventDefault();
         set_starting(true);
         await on_start({
-            job_id: bootstrap.job.id,
             name,
             email,
             language,
