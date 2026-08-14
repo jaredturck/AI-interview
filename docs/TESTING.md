@@ -27,16 +27,16 @@ Automated tests do not validate real CUDA execution. On the dual-RTX-3090 host v
 Smart Turn session provider -> CUDAExecutionProvider device 1
 Silero -> CPU
 Qwen model placement -> docs/MODELS.md
-Qwen3.6 -> text-only Qwen3_5ForCausalLM with AutoTokenizer
-Qwen3.6 -> NF4 4-bit BitsAndBytes with BF16 compute
-Qwen3.6 -> root device map is GPU 0 only with no CPU/disk offload
+Qwen3.5-9B -> text-only Qwen3_5ForCausalLM with AutoTokenizer
+Qwen3.5-9B -> INT8 BitsAndBytes with FP16 compute
+Qwen3.5-9B -> root device map is GPU 0 only with no CPU/disk offload
 Qwen3Guard -> GPU 1
-Qwen3.6 DeltaNet startup log -> FLA + causal-conv1d, not PyTorch fallback
-Qwen3.6 full attention -> SDPA; external flash-attn is not imported
+Qwen3.5-9B DeltaNet startup log -> FLA + causal-conv1d, not PyTorch fallback
+Qwen3.5-9B full attention -> SDPA; external flash-attn is not imported
 Startup -> all interview/evaluation models stay resident after preload
-Evaluation -> criteria complete in microbatches of up to four and both GPUs remain inside memory limits
-Qwen3.6 perf logs -> TTFT, total generation time and decode throughput are emitted
-Qwen3.6 regression set -> criterion evidence and PROGRESS / NOT_PROGRESS decisions remain materially consistent
+Evaluation -> criteria complete in microbatches of up to two and both GPUs remain inside memory limits
+Qwen3.5-9B perf logs -> TTFT, total generation time and decode throughput are emitted
+Qwen3.5-9B regression set -> criterion evidence and PROGRESS / NOT_PROGRESS decisions remain materially consistent
 Open microphone -> Chrome microphone indicator remains active
 Cough/background noise -> no candidate message
 Mid-sentence pause -> interviewer waits

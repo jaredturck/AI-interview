@@ -65,7 +65,7 @@ Framework/runtime constraints beat style rules.
 Normal strings use single quotes:
 
 ```python
-model_name = 'Qwen/Qwen3.6-27B'
+model_name = 'Qwen/Qwen3.5-9B'
 message = f'Loading {model_name}'
 ```
 

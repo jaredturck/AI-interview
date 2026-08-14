@@ -1,4 +1,4 @@
-''' Apply interview policy around shared Qwen3.6 generation while persisting candidate and interviewer evidence. '''
+''' Apply interview policy around shared Qwen3.5-9B generation while persisting candidate and interviewer evidence. '''
 
 from datetime import timedelta
 
@@ -24,7 +24,7 @@ def build_system_prompt(interview, temporary_instruction=''):
     return '\n\n'.join(parts)
 
 def generate_interviewer_reply(interview, candidate_text='', temporary_instruction='', internal_user_message='', max_tokens=INTERVIEWER_MAX_TOKENS):
-    ''' Generate one Qwen3.6 interviewer turn and block unsafe output before it reaches the candidate. '''
+    ''' Generate one Qwen3.5-9B interviewer turn and block unsafe output before it reaches the candidate. '''
     system_prompt = build_system_prompt(interview, temporary_instruction)
     turns = turn_list(interview)
 
@@ -40,12 +40,12 @@ def generate_interviewer_reply(interview, candidate_text='', temporary_instructi
     return SAFE_FALLBACK if response_safety == 'Unsafe' else reply
 
 def opening_message(interview):
-    ''' Start the adaptive interview with a Qwen3.6 question grounded in the linked job description. '''
+    ''' Start the adaptive interview with a Qwen3.5-9B question grounded in the linked job description. '''
     instruction = 'Begin the interview with one relevant opening question based on the job description.'
     return generate_interviewer_reply(interview, internal_user_message=instruction)
 
 def closing_message(interview):
-    ''' End the candidate-facing conversation with a short Qwen3.6 closing before final evaluation. '''
+    ''' End the candidate-facing conversation with a short Qwen3.5-9B closing before final evaluation. '''
     instruction = 'End the interview now with one brief, warm closing sentence.'
     return generate_interviewer_reply(interview, internal_user_message=instruction, max_tokens=24)
 
@@ -77,7 +77,7 @@ def add_turn(interview, role, text):
     return ConversationTurn.objects.create(interview=interview, role=role, text=text.strip())
 
 def process_candidate_text(interview, text):
-    ''' Apply timeout, safety, misuse and Qwen3.6 interviewer policy to one persisted candidate turn. '''
+    ''' Apply timeout, safety, misuse and Qwen3.5-9B interviewer policy to one persisted candidate turn. '''
     text = text.strip()[:MAX_TEXT_CHARS]
 
     if not text:

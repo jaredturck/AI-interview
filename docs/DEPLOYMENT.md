@@ -7,29 +7,29 @@
 - Python 3.12+, Node/npm and ffmpeg.
 - Two RTX 3090 GPUs.
 - CUDA-capable PyTorch + Transformers + BitsAndBytes.
-- Flash Linear Attention 0.5.1 plus causal-conv1d 1.6.2.post1 for the Qwen3.6 Gated DeltaNet fast path.
+- Flash Linear Attention 0.5.1 plus causal-conv1d 1.6.2.post1 for the Qwen3.5-9B Gated DeltaNet fast path.
 - `onnxruntime-gpu` with a working CUDA execution provider.
 - qwentts.cpp built with CUDA for compute capability 8.6.
-- Hugging Face cache/access for Qwen3.6, Qwen3-ASR, Qwen3Guard, Qwen3.5-4B and Smart Turn.
+- Hugging Face cache/access for Qwen3.5-9B, Qwen3-ASR, Qwen3Guard, Qwen3.5-4B and Smart Turn.
 
-The project uses PyTorch SDPA for Qwen3.6 full-attention layers and Flash Linear Attention plus causal-conv1d for its Gated DeltaNet fast path. The external `flash-attn` package is not used. vLLM is not part of the inference stack.
+The project uses PyTorch SDPA for Qwen3.5-9B full-attention layers and Flash Linear Attention plus causal-conv1d for its Gated DeltaNet fast path. The external `flash-attn` package is not used. vLLM is not part of the inference stack.
 
 
-For the optimized Qwen3.6 path, install the pinned Python requirements in the existing virtual environment. If `causal-conv1d` has no matching prebuilt wheel for the installed Torch/CUDA combination, pip will need the local CUDA build toolchain to compile it. Do not replace the project's pinned Torch version to satisfy this optional extension.
+For the optimized Qwen3.5-9B path, install the pinned Python requirements in the existing virtual environment. If `causal-conv1d` has no matching prebuilt wheel for the installed Torch/CUDA combination, pip will need the local CUDA build toolchain to compile it. Do not replace the project's pinned Torch version to satisfy this optional extension.
 
 ## Model cache warmup
 
 Production hosts should download large artifacts before accepting interviews:
 
 ```bash
-hf download Qwen/Qwen3.6-27B
+hf download Qwen/Qwen3.5-9B
 hf download Qwen/Qwen3-ASR-1.7B-hf
 hf download Qwen/Qwen3Guard-Gen-4B
 hf download Qwen/Qwen3.5-4B
 hf download pipecat-ai/smart-turn-v3 smart-turn-v3.2-gpu.onnx
 ```
 
-Qwen3.6 is quantized to NF4 by BitsAndBytes when loaded. The application uses the text-only `Qwen3_5ForCausalLM` class with `AutoTokenizer`, so the checkpoint's vision tower is not instantiated. No separate pre-quantized evaluator checkpoint is required.
+Qwen3.5-9B is quantized to INT8 by BitsAndBytes when loaded. The application uses the text-only `Qwen3_5ForCausalLM` class with `AutoTokenizer`, so the checkpoint's vision tower is not instantiated. No separate pre-quantized evaluator checkpoint is required.
 
 ## Production shape
 
@@ -41,4 +41,4 @@ Qwen3.6 is quantized to NF4 by BitsAndBytes when loaded. The application uses th
 6. Proxy `/api`, `/admin` and WebSocket `/ws` correctly.
 7. Warm the complete resident model stack before accepting interviews when predictable first-turn latency matters.
 
-All models remain resident after startup. Final evaluation uses the same Qwen3.6 instance as live interviewing, so there is no evaluator process or model swap. Do not scale ASGI workers on one GPU host as if inference state were stateless; each process would allocate another complete model suite.
+All models remain resident after startup. Final evaluation uses the same Qwen3.5-9B instance as live interviewing, so there is no evaluator process or model swap. Do not scale ASGI workers on one GPU host as if inference state were stateless; each process would allocate another complete model suite.

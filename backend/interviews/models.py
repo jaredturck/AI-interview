@@ -128,7 +128,7 @@ class ConversationTurn(models.Model):
         return f'{self.role}: {self.text[:60]}'
 
 class EvaluationAnswer(models.Model):
-    ''' Preserve the Qwen3.6 assessment for one configured criterion as auditable evaluation evidence. '''
+    ''' Preserve the Qwen3.5-9B assessment for one configured criterion as auditable evaluation evidence. '''
     interview = models.ForeignKey(InterviewSession, on_delete=models.CASCADE, related_name='evaluation_answers')
     question_index = models.PositiveIntegerField()
     question = models.TextField()

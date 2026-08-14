@@ -1,4 +1,4 @@
-''' Verify the resident Qwen3.6 loader keeps the agreed text-only quantization and placement contract. '''
+''' Verify the resident Qwen3.5-9B loader keeps the simple single-GPU INT8 placement contract. '''
 
 from unittest.mock import Mock
 
@@ -8,13 +8,13 @@ import torch
 from interviews.services import real_models
 
 
-def test_shared_qwen_loader_uses_text_only_nf4_sdpa(monkeypatch):
-    ''' Verify Qwen3.6 loads as a text-only NF4 model entirely on GPU 0. '''
+def test_shared_qwen_loader_uses_text_only_int8_sdpa(monkeypatch):
+    ''' Verify Qwen3.5-9B loads as a text-only INT8 model entirely on GPU 0. '''
     tokenizer = Mock()
     model = Mock()
     tokenizer_loader = Mock(return_value=tokenizer)
     model_loader = Mock(return_value=model)
-    processor_loader = Mock(side_effect=AssertionError('Qwen3.6 must not use AutoProcessor.'))
+    processor_loader = Mock(side_effect=AssertionError('Qwen3.5-9B must not use AutoProcessor.'))
     monkeypatch.setattr(real_models.AutoTokenizer, 'from_pretrained', tokenizer_loader)
     monkeypatch.setattr(real_models.Qwen3_5ForCausalLM, 'from_pretrained', model_loader)
     monkeypatch.setattr(real_models.AutoProcessor, 'from_pretrained', processor_loader)
@@ -27,15 +27,14 @@ def test_shared_qwen_loader_uses_text_only_nf4_sdpa(monkeypatch):
     args, kwargs = model_loader.call_args
     quantization = kwargs['quantization_config']
     assert args == (real_models.SHARED_MODEL,)
+    assert real_models.SHARED_MODEL == 'Qwen/Qwen3.5-9B'
     assert kwargs['device_map'] == {'': 'cuda:0'}
     assert 'max_memory' not in kwargs
-    assert kwargs['dtype'] == torch.bfloat16
+    assert kwargs['dtype'] == torch.float16
     assert kwargs['attn_implementation'] == 'sdpa'
     assert kwargs['low_cpu_mem_usage'] is True
-    assert quantization.load_in_4bit is True
-    assert quantization.bnb_4bit_quant_type == 'nf4'
-    assert quantization.bnb_4bit_compute_dtype == torch.bfloat16
-    assert quantization.bnb_4bit_use_double_quant is True
+    assert quantization.load_in_8bit is True
+    assert quantization.load_in_4bit is False
 
 
 def test_partial_preload_does_not_reload_resident_auxiliaries(monkeypatch):
@@ -74,8 +73,8 @@ def test_partial_preload_does_not_reload_resident_auxiliaries(monkeypatch):
     assert shared_loader.call_count == 2
 
 
-def test_performance_placement_and_batch_size(monkeypatch):
-    ''' Verify the optimized resident layout keeps Qwen3.6 on GPU 0 and auxiliary language models on GPU 1. '''
+def test_reliable_placement_and_evaluation_limits(monkeypatch):
+    ''' Verify Qwen3.5-9B stays on GPU 0 while auxiliary language models remain on GPU 1. '''
     tokenizer = Mock()
     model = Mock()
     tokenizer_loader = Mock(return_value=tokenizer)
@@ -89,4 +88,6 @@ def test_performance_placement_and_batch_size(monkeypatch):
     assert args == (real_models.GUARD_MODEL,)
     assert kwargs['device_map'] == {'': 'cuda:1'}
     assert real_models.SHARED_MODEL_DEVICE == 'cuda:0'
-    assert real_models.EVALUATOR_BATCH_SIZE == 4
+    assert real_models.EVALUATOR_BATCH_SIZE == 2
+    assert real_models.EVALUATOR_QUESTION_MAX_TOKENS == 512
+    assert real_models.EVALUATOR_REASONING_MAX_TOKENS == 768

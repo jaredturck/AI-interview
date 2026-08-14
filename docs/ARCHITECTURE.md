@@ -9,7 +9,7 @@ flowchart LR
     API --> DB[(SQLite / application DB)]
     WS --> Runtime[Resident model suite]
     Runtime --> DB
-    DB --> Eval[Resident Qwen3.6 evaluation]
+    DB --> Eval[Resident Qwen3.5-9B evaluation]
     Admin[Django Admin] --> API
 ```
 
@@ -45,7 +45,7 @@ Typed input enters interview policy directly. Voice input first passes the turn-
 flowchart LR
     Input[Confirmed candidate text] --> GuardIn[Qwen3Guard]
     GuardIn --> Misuse[Qwen3.5-4B misuse]
-    Misuse --> Interviewer[Qwen3.6-27B shared model]
+    Misuse --> Interviewer[Qwen3.5-9B shared model]
     Interviewer --> GuardOut[Qwen3Guard]
     GuardOut --> Text[Assistant transcript]
     GuardOut --> TTS[Qwen3-TTS WAV]
@@ -71,7 +71,7 @@ All models remain loaded in every state. `ModelRuntime` only serializes active i
 ```mermaid
 flowchart LR
     Input[Job + transcript + criteria] --> Batch[Criterion microbatches]
-    Batch --> Qwen[Resident Qwen3.6 NF4]
+    Batch --> Qwen[Resident Qwen3.5-9B INT8]
     Qwen --> Answers[EvaluationAnswer rows]
     Answers --> Reason[Final reasoning]
     Reason --> Choice[Constrained PROGRESS / NOT_PROGRESS]

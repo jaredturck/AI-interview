@@ -74,7 +74,7 @@ class FakeModelSuite:
         return 'CONTINUE'
 
     def evaluate(self, job_description, transcript, questions):
-        ''' Provide deterministic resident-model evaluation without loading Qwen3.6 during tests. '''
+        ''' Provide deterministic resident-model evaluation without loading Qwen3.5-9B during tests. '''
         answers = [f'The transcript provides relevant evidence for: {question}' for question in questions]
         return {'answers': answers, 'result': 'PROGRESS', 'error': ''}
 

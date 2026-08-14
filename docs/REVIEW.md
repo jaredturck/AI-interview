@@ -5,7 +5,7 @@ The current V2 product boundary is stable:
 ```text
 Candidate React SPA -> Django JSON + Channels -> local realtime model suite
 Staff Django Admin  -> Django ORM
-Completed interview -> Qwen3.6 evaluation -> binary stage-one outcome
+Completed interview -> Qwen3.5-9B evaluation -> binary stage-one outcome
 ```
 
 ## Invariants

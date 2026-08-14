@@ -46,7 +46,7 @@ class ModelRuntime:
                 self.active_interview_id = None
 
     def begin_evaluation(self, interview_id):
-        ''' Transfer serialized inference ownership from the completed interview to resident Qwen3.6 evaluation. '''
+        ''' Transfer serialized inference ownership from the completed interview to resident Qwen3.5-9B evaluation. '''
         interview_id = str(interview_id)
 
         with self.lock:

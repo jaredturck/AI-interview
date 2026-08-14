@@ -1,4 +1,4 @@
-''' Run Qwen3.6 post-interview criterion assessment and binary stage-two progression decisions. '''
+''' Run Qwen3.5-9B post-interview criterion assessment and binary stage-two progression decisions. '''
 
 import logging, threading
 
@@ -15,7 +15,7 @@ def mark_application_complete(interview_id):
     JobApplication.objects.filter(interview__id=interview_id).update(status='complete')
 
 def evaluate_interview(interview_id):
-    ''' Run the complete Qwen3.6 evaluation pipeline and persist criterion evidence plus the binary progression outcome. '''
+    ''' Run the complete Qwen3.5-9B evaluation pipeline and persist criterion evidence plus the binary progression outcome. '''
     close_old_connections()
     interview = InterviewSession.objects.select_related('application__job').get(id=interview_id)
 
@@ -38,6 +38,7 @@ def evaluate_interview(interview_id):
         if not questions:
             return False
 
+        print(f'Evaluation started: {len(questions)} criteria.', flush=True)
         evaluation = model_runtime.suite.evaluate(job_description, transcript, questions)
         model_answers = evaluation.get('answers') or []
         result = evaluation.get('result') or ''
@@ -68,6 +69,7 @@ def evaluate_interview(interview_id):
             return False
 
         JobApplication.objects.filter(id=interview.application_id).update(status='complete')
+        print(f'Evaluation completed: {result}.', flush=True)
         completed = True
         return True
 

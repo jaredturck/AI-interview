@@ -4,7 +4,7 @@
 
 ```text
 GPU 0 (24 GB)
-  Qwen3.6-27B NF4
+  Qwen3.5-9B INT8
   Qwen3-TTS-1.7B BF16
 
 GPU 1 (24 GB)
@@ -17,29 +17,29 @@ CPU
   Silero VAD
 ```
 
-Qwen3.6 is intentionally pinned to one RTX 3090. This removes Accelerate's layer-by-layer cross-GPU dispatch and keeps Qwen matrix multiplication local to GPU 0. Qwen3-TTS shares GPU 0 because its active generation phase follows Qwen interviewer generation rather than overlapping it; it is idle during final evaluation. GPU 1 owns the remaining realtime models.
+Qwen3.5-9B is intentionally pinned to one RTX 3090. This removes Accelerate's layer-by-layer cross-GPU dispatch and keeps Qwen matrix multiplication local to GPU 0. Qwen3-TTS shares GPU 0 because its active generation phase follows Qwen interviewer generation rather than overlapping it; it is idle during final evaluation. GPU 1 owns the remaining realtime models.
 
 These are residency choices, not claims about exact CUDA peaks. Actual free/allocated/reserved memory must be measured on the target host because PyTorch, ONNX Runtime and qwentts.cpp use separate CUDA allocators.
 
-## Shared Qwen3.6 execution
+## Shared Qwen3.5-9B execution
 
-Qwen3.6 serves both live interviewing and final evaluation. This removes the previous evaluator cold-load cycle entirely.
+Qwen3.5-9B serves both live interviewing and final evaluation. This removes the previous evaluator cold-load cycle entirely.
 
 ```text
 Interview turn
-  -> Qwen3.6 resident model
+  -> Qwen3.5-9B resident model
 
 Final evaluation
-  -> criterion microbatches of 4
+  -> criterion microbatches of 2
   -> final reasoning
   -> constrained binary decision
 ```
 
-The shared model is no longer sharded. Interview generation is batch 1 for latency; evaluation uses batches of up to four independent criteria to give the GPU larger matrix workloads and improve throughput.
+The shared model is no longer sharded. Interview generation is batch 1 for latency; evaluation uses batches of up to two independent criteria to give the GPU larger matrix workloads and improve throughput.
 
 ## Attention and DeltaNet kernels
 
-Qwen3.6 is a 3:1 hybrid model: 48 Gated DeltaNet layers and 16 full-attention layers. Full-attention layers use PyTorch SDPA. DeltaNet uses `flash-linear-attention` and `causal-conv1d` when both are installed; without both packages Transformers falls back to slower PyTorch DeltaNet operations. Startup reports either `FLA + causal-conv1d` or `PyTorch fallback`.
+Qwen3.5-9B is a 3:1 hybrid model: 24 Gated DeltaNet layers and 8 full-attention layers. Full-attention layers use PyTorch SDPA. DeltaNet uses `flash-linear-attention` and `causal-conv1d` when both are installed; without both packages Transformers falls back to slower PyTorch DeltaNet operations. Startup reports either `FLA + causal-conv1d` or `PyTorch fallback`.
 
 The external `flash-attn` package is not required. Flash Linear Attention is a different package used for the model's linear-attention delta-rule kernels.
 
@@ -47,12 +47,12 @@ The external `flash-attn` package is not required. Flash Linear Attention is a d
 
 | Setting | Value | Purpose |
 | --- | --- | --- |
-| Qwen3.6 weights | BitsAndBytes NF4 4-bit | Makes the 27B shared model resident beside the realtime models. |
-| Compute dtype | BF16 | Keeps matrix computation and activations at an appropriate Ampere-supported precision. |
-| Nested quantization | Enabled | Reduces 4-bit quantization metadata overhead. |
+| Qwen3.5-9B weights | BitsAndBytes INT8 | Keeps the shared 9B model comfortably resident beside the realtime models. |
+| Compute dtype | FP16 | Matches the shared INT8 BitsAndBytes path used on the RTX 3090. |
+| Nested quantization | Not used | The shared model now uses straightforward 8-bit weight quantization. |
 | Shared-model placement | Entirely GPU 0 | Removes cross-GPU layer dispatch and hidden-state transfers. |
-| Criterion microbatch | 4 | Increases evaluator GPU work per generation call while keeping a bounded batch. |
-| DeltaNet kernels | FLA + causal-conv1d | Uses the optimized Qwen3.6 linear-attention path instead of the PyTorch fallback. |
+| Criterion microbatch | 2 | Increases evaluator GPU work per generation call while keeping a bounded batch. |
+| DeltaNet kernels | FLA + causal-conv1d | Uses the optimized Qwen3.5-9B linear-attention path instead of the PyTorch fallback. |
 | Active inference | Serialized | Avoids interview and evaluation activation peaks overlapping. |
 | CPU weight offload | Not intended | Keeps model execution on the two RTX 3090s. |
 
@@ -63,7 +63,7 @@ Before treating the memory map as final, record these on the actual dual-3090 ho
 - driver-level free/total memory for each GPU;
 - `torch.cuda.memory_allocated()` and `memory_reserved()` for each GPU;
 - peak allocated memory for an interviewer turn;
-- peak allocated memory for a four-criterion evaluation batch;
+- peak allocated memory for a two-criterion evaluation batch;
 - end-to-end interviewer latency, Qwen first-token latency/decode throughput and complete evaluation wall time.
 
 Useful host-side observation:
@@ -81,7 +81,7 @@ nvidia-smi dmon -s pucm -d 1
  -> Smart Turn
  -> 0.5 s completion grace OR ~6 s incomplete-turn hold
  -> Qwen3-ASR
- -> safety + misuse + Qwen3.6 interviewer
+ -> safety + misuse + Qwen3.5-9B interviewer
  -> Qwen3-TTS
 ```
 

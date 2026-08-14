@@ -8,10 +8,10 @@ A local first-stage interview application built with React, TypeScript, Django, 
 flowchart LR
     Browser[React browser client] -->|voice / text| Channels[Django Channels]
     Channels --> Voice[Silero + Smart Turn + Qwen3-ASR]
-    Voice --> Policy[Safety + misuse + shared Qwen3.6 interviewer]
+    Voice --> Policy[Safety + misuse + shared Qwen3.5-9B interviewer]
     Policy --> TTS[Qwen3-TTS]
     Channels --> DB[(Confirmed transcript + interview state)]
-    DB --> Eval[Resident Qwen3.6 evaluator]
+    DB --> Eval[Resident Qwen3.5-9B evaluator]
 ```
 
 Voice turn-taking is context-aware rather than `silence == finished`: Silero rejects non-speech, Smart Turn decides whether a pause looks like a conversational handoff, and Qwen3-ASR runs only after the turn is accepted. See `docs/VOICE_PIPELINE.md`.
@@ -58,7 +58,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Smart Turn v3.2 is downloaded from `pipecat-ai/smart-turn-v3` through the Hugging Face cache on first model load. Silero VAD is supplied by `silero-vad`. Qwen3.6 is loaded once through the text-only `Qwen3_5ForCausalLM` class and quantized to NF4 4-bit weights with BF16 compute by BitsAndBytes; the vision tower is not instantiated.
+Smart Turn v3.2 is downloaded from `pipecat-ai/smart-turn-v3` through the Hugging Face cache on first model load. Silero VAD is supplied by `silero-vad`. Qwen3.5-9B is loaded once through the text-only `Qwen3_5ForCausalLM` class and quantized to INT8 weights with FP16 compute by BitsAndBytes; the vision tower is not instantiated.
 
 The inference stack uses PyTorch SDPA. The external `flash-attn` package and vLLM are not required.
 
@@ -122,12 +122,12 @@ npm test
 ## Model placement
 
 ```text
-GPU 0: Qwen3.6-27B NF4 + Qwen3-TTS
+GPU 0: Qwen3.5-9B INT8 + Qwen3-TTS
 GPU 1: Qwen3-ASR + Qwen3Guard + Qwen3.5-4B misuse + Smart Turn v3.2
 CPU:   Silero VAD
 ```
 
-Qwen3.6 is shared by interviewing, job metadata and final evaluation and is kept entirely on GPU 0 to avoid cross-GPU layer transfers. Its Gated DeltaNet layers use Flash Linear Attention plus causal-conv1d when those optimized packages are installed; full-attention layers continue through PyTorch SDPA. See `docs/MODELS.md` for exact checkpoints and precision.
+Qwen3.5-9B is shared by interviewing, job metadata and final evaluation and is kept entirely on GPU 0 to avoid cross-GPU layer transfers. Its Gated DeltaNet layers use Flash Linear Attention plus causal-conv1d when those optimized packages are installed; full-attention layers continue through PyTorch SDPA. See `docs/MODELS.md` for exact checkpoints and precision.
 
 ## Interview content
 
