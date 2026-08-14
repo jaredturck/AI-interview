@@ -7,11 +7,15 @@
 - Python 3.12+, Node/npm and ffmpeg.
 - Two RTX 3090 GPUs.
 - CUDA-capable PyTorch + Transformers + BitsAndBytes.
+- Flash Linear Attention 0.5.1 plus causal-conv1d 1.6.2.post1 for the Qwen3.6 Gated DeltaNet fast path.
 - `onnxruntime-gpu` with a working CUDA execution provider.
 - qwentts.cpp built with CUDA for compute capability 8.6.
 - Hugging Face cache/access for Qwen3.6, Qwen3-ASR, Qwen3Guard, Qwen3.5-4B and Smart Turn.
 
-The project intentionally uses PyTorch SDPA and does not depend on the external `flash-attn` package. vLLM is not part of the inference stack.
+The project uses PyTorch SDPA for Qwen3.6 full-attention layers and Flash Linear Attention plus causal-conv1d for its Gated DeltaNet fast path. The external `flash-attn` package is not used. vLLM is not part of the inference stack.
+
+
+For the optimized Qwen3.6 path, install the pinned Python requirements in the existing virtual environment. If `causal-conv1d` has no matching prebuilt wheel for the installed Torch/CUDA combination, pip will need the local CUDA build toolchain to compile it. Do not replace the project's pinned Torch version to satisfy this optional extension.
 
 ## Model cache warmup
 

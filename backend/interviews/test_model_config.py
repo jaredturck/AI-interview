@@ -9,7 +9,7 @@ from interviews.services import real_models
 
 
 def test_shared_qwen_loader_uses_text_only_nf4_sdpa(monkeypatch):
-    ''' Verify Qwen3.6 loads as a text-only NF4 model with realistic dual-3090 placement limits. '''
+    ''' Verify Qwen3.6 loads as a text-only NF4 model entirely on GPU 0. '''
     tokenizer = Mock()
     model = Mock()
     tokenizer_loader = Mock(return_value=tokenizer)
@@ -27,8 +27,8 @@ def test_shared_qwen_loader_uses_text_only_nf4_sdpa(monkeypatch):
     args, kwargs = model_loader.call_args
     quantization = kwargs['quantization_config']
     assert args == (real_models.SHARED_MODEL,)
-    assert kwargs['device_map'] == 'balanced'
-    assert kwargs['max_memory'] == {0: '22GiB', 1: '22GiB'}
+    assert kwargs['device_map'] == {'': 'cuda:0'}
+    assert 'max_memory' not in kwargs
     assert kwargs['dtype'] == torch.bfloat16
     assert kwargs['attn_implementation'] == 'sdpa'
     assert kwargs['low_cpu_mem_usage'] is True
@@ -72,3 +72,21 @@ def test_partial_preload_does_not_reload_resident_auxiliaries(monkeypatch):
     assert guard_loader.call_count == 1
     assert misuse_loader.call_count == 1
     assert shared_loader.call_count == 2
+
+
+def test_performance_placement_and_batch_size(monkeypatch):
+    ''' Verify the optimized resident layout keeps Qwen3.6 on GPU 0 and auxiliary language models on GPU 1. '''
+    tokenizer = Mock()
+    model = Mock()
+    tokenizer_loader = Mock(return_value=tokenizer)
+    model_loader = Mock(return_value=model)
+    monkeypatch.setattr(real_models.AutoTokenizer, 'from_pretrained', tokenizer_loader)
+    monkeypatch.setattr(real_models.AutoModelForCausalLM, 'from_pretrained', model_loader)
+
+    real_models.QwenGuardModel()
+
+    args, kwargs = model_loader.call_args
+    assert args == (real_models.GUARD_MODEL,)
+    assert kwargs['device_map'] == {'': 'cuda:1'}
+    assert real_models.SHARED_MODEL_DEVICE == 'cuda:0'
+    assert real_models.EVALUATOR_BATCH_SIZE == 4

@@ -10,8 +10,10 @@ torchvision==0.26.0
 transformers>=5.13
 accelerate
 bitsandbytes
+flash-linear-attention[cuda]==0.5.1
+causal-conv1d==1.6.2.post1
 soundfile
 huggingface-hub
 onnxruntime-gpu
 silero-vad==6.2.1
-# External flash-attn is intentionally not used; Transformer attention runs through PyTorch SDPA.
+# External flash-attn is intentionally not used; Qwen full-attention layers run through PyTorch SDPA.

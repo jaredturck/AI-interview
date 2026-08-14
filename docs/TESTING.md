@@ -29,11 +29,13 @@ Silero -> CPU
 Qwen model placement -> docs/MODELS.md
 Qwen3.6 -> text-only Qwen3_5ForCausalLM with AutoTokenizer
 Qwen3.6 -> NF4 4-bit BitsAndBytes with BF16 compute
-Qwen3.6 -> max_memory is 22 GiB on GPU 0 and GPU 1
-Qwen3.6 -> hf_device_map contains GPU 0 + GPU 1 and no CPU/disk offload
-Transformers attention -> SDPA; external flash-attn is not imported
+Qwen3.6 -> root device map is GPU 0 only with no CPU/disk offload
+Qwen3Guard -> GPU 1
+Qwen3.6 DeltaNet startup log -> FLA + causal-conv1d, not PyTorch fallback
+Qwen3.6 full attention -> SDPA; external flash-attn is not imported
 Startup -> all interview/evaluation models stay resident after preload
-Evaluation -> criteria complete in microbatches and both GPUs remain inside memory limits
+Evaluation -> criteria complete in microbatches of up to four and both GPUs remain inside memory limits
+Qwen3.6 perf logs -> TTFT, total generation time and decode throughput are emitted
 Qwen3.6 regression set -> criterion evidence and PROGRESS / NOT_PROGRESS decisions remain materially consistent
 Open microphone -> Chrome microphone indicator remains active
 Cough/background noise -> no candidate message

@@ -1,10 +1,11 @@
 ''' Bind the fixed Qwen interview, safety, speech, misuse and evaluation checkpoints to application-facing model interfaces. '''
 
-import io, re, threading
+import io, re, threading, time
 
 import soundfile as sf
 import torch
 from transformers import AutoModelForCausalLM, AutoModelForMultimodalLM, AutoProcessor, AutoTokenizer, BitsAndBytesConfig, LogitsProcessorList, Qwen3_5ForCausalLM
+from transformers.utils.import_utils import is_causal_conv1d_available, is_flash_linear_attention_available
 
 from interviews.services.choice import ChoiceLogitsProcessor
 from interviews.services.content import EVALUATOR_QUESTION_PROMPT, FINAL_CHOICE_PROMPT, FINAL_OUTPUT_PROMPT, MISUSE_PROMPT
@@ -15,8 +16,8 @@ ASR_MODEL = 'Qwen/Qwen3-ASR-1.7B-hf'
 SHARED_MODEL = 'Qwen/Qwen3.6-27B'
 GUARD_MODEL = 'Qwen/Qwen3Guard-Gen-4B'
 MISUSE_MODEL = 'Qwen/Qwen3.5-4B'
-SHARED_MODEL_MAX_MEMORY = {0: '22GiB', 1: '22GiB'}
-EVALUATOR_BATCH_SIZE = 2
+SHARED_MODEL_DEVICE = 'cuda:0'
+EVALUATOR_BATCH_SIZE = 4
 EVALUATOR_QUESTION_MAX_TOKENS = 2048
 EVALUATOR_REASONING_MAX_TOKENS = 4096
 TTS_SPEAKER = 'vivian'
@@ -43,28 +44,59 @@ def evaluator_messages(system_prompt, context):
         {'role': 'user', 'content': context}
     ]
 
+class GenerationTimer:
+    ''' Capture Qwen generation start and first-token timing without altering logits. '''
+    def __init__(self, device):
+        self.device = device
+        self.started = time.perf_counter()
+        self.first_step = None
+
+    def __call__(self, input_ids, scores):
+        if self.first_step is None:
+            torch.cuda.synchronize(self.device)
+            self.first_step = time.perf_counter()
+
+        return scores
+
 class QwenSharedModel:
     ''' Serve one permanently resident Qwen3.6-27B instance for interviewing, job metadata and final evaluation. '''
     def __init__(self):
-        ''' Load Qwen3.6-27B as NF4 4-bit weights with BF16 compute, balanced across both interview GPUs. '''
+        ''' Load Qwen3.6-27B as NF4 4-bit weights with BF16 compute entirely on GPU 0. '''
         quantization = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type='nf4', bnb_4bit_compute_dtype=torch.bfloat16,
             bnb_4bit_use_double_quant=True)
         model_kwargs = {
-            'device_map': 'balanced',
-            'max_memory': SHARED_MODEL_MAX_MEMORY,
+            'device_map': device_map_for(SHARED_MODEL_DEVICE),
             'dtype': torch.bfloat16,
             'attn_implementation': 'sdpa',
             'low_cpu_mem_usage': True,
             'quantization_config': quantization
         }
+        fast_deltanet = is_flash_linear_attention_available() and is_causal_conv1d_available()
+        backend = 'FLA + causal-conv1d' if fast_deltanet else 'PyTorch fallback'
+        print(f'Qwen3.6 DeltaNet backend: {backend}', flush=True)
         self.tokenizer = AutoTokenizer.from_pretrained(SHARED_MODEL)
         self.tokenizer.padding_side = 'left'
         self.model = Qwen3_5ForCausalLM.from_pretrained(SHARED_MODEL, **model_kwargs)
         self.model.eval()
 
     def input_device(self):
-        ''' Return the device holding Qwen3.6 input embeddings so Accelerate can dispatch later layers across both GPUs. '''
+        ''' Return the single GPU holding the complete Qwen3.6 model. '''
         return self.model.get_input_embeddings().weight.device
+
+    def log_generation(self, timer, inputs, generation, batch_size, label):
+        ''' Print first-token latency and decode throughput for one Qwen3.6 generation call. '''
+        torch.cuda.synchronize(self.input_device())
+        finished = time.perf_counter()
+        first_step = timer.first_step or finished
+        prompt_tokens = inputs['attention_mask'].sum().item()
+        generated_steps = generation.shape[-1] - inputs['input_ids'].shape[-1]
+        generated_tokens = generated_steps * batch_size
+        ttft = first_step - timer.started
+        decode_time = max(finished - first_step, 0.000001)
+        total_time = finished - timer.started
+        throughput = generated_tokens / decode_time
+        print(f'[Qwen3.6 Perf] {label}: batch={batch_size} prompt_tokens={prompt_tokens} generated_tokens={generated_tokens} '
+            f'ttft={ttft:.3f}s total={total_time:.3f}s decode={throughput:.1f} tok/s', flush=True)
 
     def prepare_inputs(self, messages, enable_thinking):
         ''' Apply the Qwen3.6 chat template for one text-only request. '''
@@ -82,23 +114,27 @@ class QwenSharedModel:
     def generate(self, messages, max_tokens, thinking, temperature, top_p):
         ''' Generate one free-form Qwen3.6 response for interviewer, metadata or evaluator reasoning. '''
         inputs = self.prepare_inputs(messages, thinking)
+        timer = GenerationTimer(self.input_device())
 
         with torch.inference_mode():
             generation = self.model.generate(**inputs, max_new_tokens=max_tokens, do_sample=True, temperature=temperature,
-                top_p=top_p, top_k=20, repetition_penalty=1.0)
+                top_p=top_p, top_k=20, repetition_penalty=1.0, logits_processor=LogitsProcessorList([timer]))
 
+        self.log_generation(timer, inputs, generation, 1, 'generation')
         output = generation[0][inputs['input_ids'].shape[-1]:]
         text = self.tokenizer.decode(output, skip_special_tokens=True)
         return strip_thinking(text)
 
     def generate_batch(self, message_batches, max_tokens, thinking, temperature, top_p):
-        ''' Generate a small evaluator microbatch while keeping the shared model and auxiliary stack resident. '''
+        ''' Generate an evaluator microbatch while keeping the shared model and auxiliary stack resident. '''
         inputs = self.prepare_batch(message_batches, thinking)
+        timer = GenerationTimer(self.input_device())
 
         with torch.inference_mode():
             generation = self.model.generate(**inputs, max_new_tokens=max_tokens, do_sample=True, temperature=temperature,
-                top_p=top_p, top_k=20, repetition_penalty=1.0)
+                top_p=top_p, top_k=20, repetition_penalty=1.0, logits_processor=LogitsProcessorList([timer]))
 
+        self.log_generation(timer, inputs, generation, len(message_batches), 'evaluation batch')
         output = generation[:, inputs['input_ids'].shape[-1]:]
         texts = self.tokenizer.batch_decode(output, skip_special_tokens=True)
         return [strip_thinking(text) for text in texts]
@@ -111,10 +147,13 @@ class QwenSharedModel:
         logits_processor = ChoiceLogitsProcessor(inputs['input_ids'].shape[-1], choice_token_ids, tokenizer.eos_token_id)
         max_tokens = max(len(choice) for choice in choice_token_ids) + 1
 
+        timer = GenerationTimer(self.input_device())
+
         with torch.inference_mode():
             generation = self.model.generate(**inputs, max_new_tokens=max_tokens, do_sample=False,
-                logits_processor=LogitsProcessorList([logits_processor]))
+                logits_processor=LogitsProcessorList([timer, logits_processor]))
 
+        self.log_generation(timer, inputs, generation, 1, 'constrained choice')
         output = generation[0][inputs['input_ids'].shape[-1]:]
         text = tokenizer.decode(output, skip_special_tokens=True).strip()
         return text if text in choices else ''
@@ -178,9 +217,9 @@ class QwenASRModel:
 class QwenGuardModel:
     ''' Protect candidate input and interviewer output with Qwen/Qwen3Guard-Gen-4B. '''
     def __init__(self):
-        ''' Keep Qwen3Guard-Gen-4B resident in INT8 on GPU 0 to balance the always-resident dual-GPU stack. '''
+        ''' Keep Qwen3Guard-Gen-4B resident in INT8 on GPU 1 with the auxiliary realtime models. '''
         model_kwargs = {
-            'device_map': device_map_for('cuda:0'),
+            'device_map': device_map_for('cuda:1'),
             'dtype': torch.float16,
             'attn_implementation': 'sdpa',
             'low_cpu_mem_usage': True,
@@ -220,7 +259,7 @@ class RealModelSuite:
         self.guard_model = None
 
     def load_models(self):
-        ''' Load the complete interview and evaluation stack once, with Qwen3.6 shared across both GPUs. '''
+        ''' Load the complete interview and evaluation stack once, with Qwen3.6 isolated on GPU 0. '''
         with self.lock:
             if self.models_loaded():
                 return
@@ -238,7 +277,7 @@ class RealModelSuite:
                 self.turn_detector = TurnDetector()
 
             if self.guard_model is None:
-                print('Loading Qwen3Guard model on GPU 0...', flush=True)
+                print('Loading Qwen3Guard model on GPU 1...', flush=True)
                 self.guard_model = QwenGuardModel()
 
             if self.misuse_model is None:
@@ -246,7 +285,7 @@ class RealModelSuite:
                 self.misuse_model = QwenTextModel(MISUSE_MODEL, 'cuda:1')
 
             if self.shared_model is None:
-                print('Loading shared Qwen3.6-27B NF4 model across GPU 0 + GPU 1...', flush=True)
+                print('Loading shared Qwen3.6-27B NF4 model entirely on GPU 0...', flush=True)
                 self.shared_model = QwenSharedModel()
 
     def models_loaded(self):
@@ -313,12 +352,19 @@ class RealModelSuite:
         question_messages = [evaluator_messages(EVALUATOR_QUESTION_PROMPT, common_context + question) for question in questions]
         answers = []
 
+        total_batches = (len(question_messages) + EVALUATOR_BATCH_SIZE - 1) // EVALUATOR_BATCH_SIZE
+
         for start in range(0, len(question_messages), EVALUATOR_BATCH_SIZE):
             batch = question_messages[start:start + EVALUATOR_BATCH_SIZE]
+            batch_number = start // EVALUATOR_BATCH_SIZE + 1
+            started = time.perf_counter()
+            print(f'Evaluation batch {batch_number}/{total_batches} started ({len(batch)} criteria).', flush=True)
             batch_answers = self.shared_model.generate_batch(batch, max_tokens=EVALUATOR_QUESTION_MAX_TOKENS, thinking=True,
                 temperature=1.0, top_p=0.95)
             answers.extend(batch_answers)
-            print(f'Evaluated {len(answers)}/{len(questions)} criteria.', flush=True)
+            elapsed = time.perf_counter() - started
+            print(f'Evaluation batch {batch_number}/{total_batches} finished in {elapsed:.1f}s; '
+                f'{len(answers)}/{len(questions)} criteria complete.', flush=True)
 
         if len(answers) != len(questions) or any(not answer for answer in answers):
             return {'answers': answers, 'result': '', 'error': 'Qwen3.6 returned an incomplete criterion batch.'}

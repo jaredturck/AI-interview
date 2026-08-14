@@ -122,12 +122,12 @@ npm test
 ## Model placement
 
 ```text
-GPU 0: Qwen3.6-27B NF4 shard + Qwen3-TTS + Qwen3Guard
-GPU 1: Qwen3.6-27B NF4 shard + Qwen3-ASR + Qwen3.5-4B misuse + Smart Turn v3.2
+GPU 0: Qwen3.6-27B NF4 + Qwen3-TTS
+GPU 1: Qwen3-ASR + Qwen3Guard + Qwen3.5-4B misuse + Smart Turn v3.2
 CPU:   Silero VAD
 ```
 
-Qwen3.6 is shared by interviewing, job metadata and final evaluation. Its balanced device map has a 22 GiB ceiling on each GPU; that is an upper placement limit, not a reservation. See `docs/MODELS.md` for exact checkpoints and precision.
+Qwen3.6 is shared by interviewing, job metadata and final evaluation and is kept entirely on GPU 0 to avoid cross-GPU layer transfers. Its Gated DeltaNet layers use Flash Linear Attention plus causal-conv1d when those optimized packages are installed; full-attention layers continue through PyTorch SDPA. See `docs/MODELS.md` for exact checkpoints and precision.
 
 ## Interview content
 
