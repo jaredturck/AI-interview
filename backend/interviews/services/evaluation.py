@@ -3,7 +3,6 @@
 import logging, threading
 
 from django.db import close_old_connections
-from tqdm import tqdm
 
 from interviews.models import EvaluationAnswer, InterviewSession, JobApplication
 from interviews.services.runtime import model_runtime
@@ -34,29 +33,34 @@ def evaluate_interview(interview_id):
         transcript = transcript_text(interview)
         job_description = interview.application.job.description
         questions = interview.application.job.evaluation_question_list()
-        answers = []
         EvaluationAnswer.objects.filter(interview=interview).delete()
 
         if not questions:
             return False
 
-        with tqdm(total=len(questions), desc='Evaluating criteria', unit='criterion') as progress:
-            for index, question in enumerate(questions):
-                progress.set_postfix_str(f'{index + 1}/{len(questions)}')
-                answer = model_runtime.suite.evaluate_question(job_description, transcript, question).strip()
+        evaluation = model_runtime.suite.evaluate(job_description, transcript, questions)
+        model_answers = evaluation.get('answers') or []
+        result = evaluation.get('result') or ''
+        error = evaluation.get('error') or ''
 
-                if not answer:
-                    return False
-
-                EvaluationAnswer.objects.create(interview=interview, question_index=index, question=question, answer=answer)
-                answers.append({'question': question, 'answer': answer})
-                progress.update()
-
-        print('Generating final evaluation decision...', flush=True)
-        result = model_runtime.suite.final_choice(job_description, transcript, answers)
-
-        if result not in ['PROGRESS', 'NOT_PROGRESS']:
+        if error:
+            LOGGER.error('Evaluator worker failed: %s', error)
             return False
+
+        if len(model_answers) != len(questions) or result not in ['PROGRESS', 'NOT_PROGRESS']:
+            return False
+
+        answers = [answer.strip() for answer in model_answers]
+
+        if any(not answer for answer in answers):
+            return False
+
+        evaluation_answers = []
+
+        for index, question in enumerate(questions):
+            evaluation_answers.append(EvaluationAnswer(interview=interview, question_index=index, question=question, answer=answers[index]))
+
+        EvaluationAnswer.objects.bulk_create(evaluation_answers)
 
         updated = InterviewSession.objects.filter(id=interview.id).update(result=result, status='evaluated')
 

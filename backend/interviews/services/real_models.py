@@ -7,7 +7,8 @@ import torch
 from transformers import AutoModelForCausalLM, AutoModelForMultimodalLM, AutoProcessor, AutoTokenizer, BitsAndBytesConfig, LogitsProcessorList
 
 from interviews.services.choice import ChoiceLogitsProcessor
-from interviews.services.content import EVALUATOR_QUESTION_PROMPT, FINAL_CHOICE_PROMPT, FINAL_OUTPUT_PROMPT, MISUSE_PROMPT
+from interviews.services.content import MISUSE_PROMPT
+from interviews.services.evaluator_runtime import evaluate_in_worker
 from interviews.services.qwen_tts_cpp import QwenTTSModel
 from interviews.services.turn_detection import TurnDetector
 
@@ -15,11 +16,8 @@ ASR_MODEL = 'Qwen/Qwen3-ASR-1.7B-hf'
 INTERVIEWER_MODEL = 'Qwen/Qwen3.5-9B'
 GUARD_MODEL = 'Qwen/Qwen3Guard-Gen-4B'
 MISUSE_MODEL = 'Qwen/Qwen3.5-4B'
-EVALUATOR_MODEL = 'Qwen/Qwen3.6-27B'
 TTS_SPEAKER = 'vivian'
 TTS_INSTRUCTION = 'Speak clearly, calmly, warmly, and at a natural interview pace.'
-QUESTION_MAX_TOKENS = 2048
-FINAL_REASONING_MAX_TOKENS = 4096
 
 def strip_thinking(text):
     ''' Remove Qwen thinking blocks so only candidate-facing text or stored conclusions leave the model wrapper. '''
@@ -36,33 +34,29 @@ def device_map_for(device):
     return {'': device}
 
 class QwenMultimodalChatModel:
-    ''' Serve Qwen/Qwen3.5-9B interviewer and Qwen/Qwen3.6-27B evaluator through the shared multimodal Transformers wrapper. '''
-    def __init__(self, model_name, device, evaluator=False):
-        ''' Prepare Qwen3.5-9B or Qwen3.6-27B in INT8 for its assigned interview or evaluation GPU role. '''
+    ''' Serve the realtime Qwen/Qwen3.5-9B interviewer through the shared multimodal Transformers wrapper. '''
+    def __init__(self, model_name, device):
+        ''' Prepare Qwen3.5-9B in INT8 on its assigned realtime GPU. '''
         model_kwargs = {
-            'device_map': 'auto' if evaluator else device_map_for(device),
+            'device_map': device_map_for(device),
             'dtype': torch.float16,
             'attn_implementation': 'sdpa',
             'low_cpu_mem_usage': True,
             'quantization_config': BitsAndBytesConfig(load_in_8bit=True)
         }
-
-        if evaluator:
-            model_kwargs['max_memory'] = {0: '22GiB', 1: '22GiB', 'cpu': '48GiB'}
-
         self.processor = AutoProcessor.from_pretrained(model_name)
         self.model = AutoModelForMultimodalLM.from_pretrained(model_name, **model_kwargs)
         self.model.eval()
 
     def prepare_inputs(self, messages, enable_thinking):
-        ''' Apply the Qwen multimodal chat template while allowing thinking only for evaluation calls. '''
+        ''' Apply the Qwen multimodal chat template with the requested thinking mode. '''
         prompt = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
         inputs = self.processor(text=[prompt], return_tensors='pt', padding=True)
         input_device = next(self.model.parameters()).device
         return inputs.to(input_device)
 
     def generate(self, messages, max_tokens, thinking, temperature, top_p):
-        ''' Provide free-form Qwen3.5-9B or Qwen3.6-27B generation with thinking enabled only when the caller requires it. '''
+        ''' Generate free-form Qwen3.5-9B interviewer text with the requested thinking mode. '''
         inputs = self.prepare_inputs(messages, thinking)
 
         with torch.inference_mode():
@@ -74,7 +68,7 @@ class QwenMultimodalChatModel:
         return strip_thinking(text)
 
     def choice(self, messages, choices):
-        ''' Constrain Qwen3.5-9B or Qwen3.6-27B output where application logic requires an exact approved decision. '''
+        ''' Constrain Qwen3.5-9B output where application logic requires an exact approved decision. '''
         inputs = self.prepare_inputs(messages, False)
         tokenizer = self.processor.tokenizer
         choice_token_ids = [tokenizer.encode(choice, add_special_tokens=False) for choice in choices]
@@ -176,9 +170,9 @@ def load_qwen_tts():
     return QwenTTSModel()
 
 class RealModelSuite:
-    ''' Own the realtime Qwen speech/interview stack, turn detector and Qwen3.6 evaluator lifecycle. '''
+    ''' Own the realtime Qwen stack, turn detector and isolated Qwen3.6 evaluator lifecycle. '''
     def __init__(self):
-        ''' Track model residency and serialize realtime and evaluator GPU transitions within the process. '''
+        ''' Track model residency and serialize realtime/evaluator GPU ownership transitions. '''
         self.lock = threading.RLock()
         self.asr = None
         self.tts = None
@@ -186,7 +180,6 @@ class RealModelSuite:
         self.interviewer_model = None
         self.misuse_model = None
         self.guard_model = None
-        self.evaluator_model = None
         self.mode = 'idle'
 
     def clear_cuda(self):
@@ -239,20 +232,17 @@ class RealModelSuite:
             self.clear_cuda()
 
     def load_evaluator(self):
-        ''' Replace the realtime stack with Qwen/Qwen3.6-27B across both GPUs for final evaluation. '''
+        ''' Release the realtime stack before the isolated vLLM evaluator process takes both GPUs. '''
         with self.lock:
-            if self.mode == 'evaluator' and self.evaluator_model:
+            if self.mode == 'evaluator':
                 return
 
             self.unload_live()
-            self.evaluator_model = QwenMultimodalChatModel(EVALUATOR_MODEL, 'cuda:0', evaluator=True)
             self.mode = 'evaluator'
 
     def unload_evaluator(self):
-        ''' Release Qwen3.6-27B so the realtime interview stack can be restored. '''
+        ''' Return parent-process runtime state to idle after the isolated evaluator process exits. '''
         with self.lock:
-            self.evaluator_model = None
-
             if self.mode == 'evaluator':
                 self.mode = 'idle'
 
@@ -312,29 +302,7 @@ class RealModelSuite:
         ]
         return self.misuse_model.choice(messages, ['CONTINUE', 'REDIRECT', 'TERMINATE'])
 
-    def evaluate_question(self, job_description, transcript, question):
-        ''' Use thinking-enabled Qwen3.6-27B to produce the stored assessment for one configured criterion. '''
+    def evaluate(self, job_description, transcript, questions):
+        ''' Run the complete Qwen3.6 evaluation workload in one isolated, batched vLLM process. '''
         self.load_evaluator()
-        context = f'JOB DESCRIPTION\n{job_description}\n\nINTERVIEW TRANSCRIPT\n{transcript}\n\nCRITERION\n{question}'
-        messages = [
-            {'role': 'system', 'content': EVALUATOR_QUESTION_PROMPT},
-            {'role': 'user', 'content': context}
-        ]
-        return self.evaluator_model.generate(messages, max_tokens=QUESTION_MAX_TOKENS, thinking=True, temperature=1.0, top_p=0.95)
-
-    def final_choice(self, job_description, transcript, answers):
-        ''' Use Qwen3.6-27B to reason across criterion assessments and constrain the result to PROGRESS or NOT_PROGRESS. '''
-        self.load_evaluator()
-        assessments = '\n\n'.join(f'{index + 1}. {item["question"]}\nAssessment: {item["answer"]}' for index, item in enumerate(answers))
-        context = f'JOB DESCRIPTION\n{job_description}\n\nINTERVIEW TRANSCRIPT\n{transcript}\n\nCRITERION ASSESSMENTS\n{assessments}'
-        reasoning_messages = [
-            {'role': 'system', 'content': FINAL_CHOICE_PROMPT},
-            {'role': 'user', 'content': context}
-        ]
-        decision_analysis = self.evaluator_model.generate(reasoning_messages, max_tokens=FINAL_REASONING_MAX_TOKENS, thinking=True,
-            temperature=1.0, top_p=0.95)
-        choice_messages = [
-            {'role': 'system', 'content': FINAL_OUTPUT_PROMPT},
-            {'role': 'user', 'content': f'{context}\n\nFINAL DECISION ANALYSIS\n{decision_analysis}'}
-        ]
-        return self.evaluator_model.choice(choice_messages, ['PROGRESS', 'NOT_PROGRESS'])
+        return evaluate_in_worker(job_description, transcript, questions)

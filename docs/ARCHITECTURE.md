@@ -68,17 +68,21 @@ stateDiagram-v2
 
 ## Evaluation
 
-After completion:
+Final evaluation deliberately uses a separate process because the Django process has already initialized several CUDA runtimes during the live interview.
 
-```text
-Job snapshot + full transcript
-    -> Qwen3.6 reasoning per evaluation criterion
-    -> persisted EvaluationAnswer rows
-    -> final Qwen3.6 reasoning over all evidence
-    -> constrained PROGRESS / NOT_PROGRESS
+```mermaid
+flowchart LR
+    Input[Job + transcript + criteria] --> Spawn[Spawn clean evaluator process]
+    Spawn --> Batch[vLLM criterion batch]
+    Batch --> Cache[Prefix cache]
+    Cache --> TP[Qwen3.6 W8A16 TP=2]
+    TP --> Answers[EvaluationAnswer rows]
+    Answers --> Reason[Final reasoning]
+    Reason --> Choice[PROGRESS / NOT_PROGRESS]
+    Choice --> Exit[Process exit + live-stack reload]
 ```
 
-Inference failure becomes `evaluation_failed`; it never fabricates a recruitment outcome.
+All criteria are independent and are submitted together; the final decision remains dependent on the completed criterion assessments. The evaluator process must exit before the realtime stack is reloaded. Inference failure becomes `evaluation_failed`; it never fabricates a recruitment outcome.
 
 ## Persistence and privacy boundary
 

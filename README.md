@@ -11,7 +11,7 @@ flowchart LR
     Voice --> Policy[Safety + misuse + Qwen3.5 interviewer]
     Policy --> TTS[Qwen3-TTS]
     Channels --> DB[(Confirmed transcript + interview state)]
-    DB --> Eval[Qwen3.6 final evaluator]
+    DB --> Eval[Qwen3.6 W8A16 vLLM evaluator]
 ```
 
 Voice turn-taking is context-aware rather than `silence == finished`: Silero rejects non-speech, Smart Turn decides whether a pause looks like a conversational handoff, and Qwen3-ASR runs only after the turn is accepted. See `docs/VOICE_PIPELINE.md`.
@@ -58,7 +58,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Smart Turn v3.2 is downloaded from `pipecat-ai/smart-turn-v3` through the Hugging Face cache on first live-model load. Silero VAD is supplied by `silero-vad`.
+Smart Turn v3.2 is downloaded from `pipecat-ai/smart-turn-v3` through the Hugging Face cache on first live-model load. Silero VAD is supplied by `silero-vad`. Final evaluation uses the `88plug/Qwen3.6-27B-W8A16` compressed-tensors checkpoint with the official `Qwen/Qwen3.6-27B` tokenizer.
 
 ## Qwen3-TTS native runtime
 
@@ -124,7 +124,7 @@ GPU 0: Qwen3.5-9B interviewer + Qwen3-TTS
 GPU 1: Qwen3-ASR + Qwen3Guard + Qwen3.5-4B misuse + Smart Turn v3.2
 CPU:   Silero VAD
 
-Final evaluation: Qwen3.6-27B across GPU 0 + GPU 1
+Final evaluation: Qwen3.6-27B W8A16 via vLLM TP=2 across GPU 0 + GPU 1
 ```
 
 See `docs/MODELS.md` for exact checkpoints and precision.
@@ -160,7 +160,7 @@ Raw microphone audio is processed in memory and is not stored by the application
 
 ## Model lifecycle
 
-`ModelRuntime` owns one process-wide model worker. A normal unfinished disconnect releases the interview reservation while keeping live weights resident. Completing an interview transfers the worker to Qwen3.6 evaluation; the live stack is restored afterwards.
+`ModelRuntime` owns one process-wide model worker. A normal unfinished disconnect releases the interview reservation while keeping live weights resident. Completing an interview unloads the live stack, runs batched Qwen3.6 evaluation in a clean spawned vLLM process, then restores the live stack after that process exits.
 
 One dual-3090 worker supports one live interview or one final evaluation at a time.
 

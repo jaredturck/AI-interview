@@ -81,13 +81,10 @@ class FakeModelSuite:
 
         return 'CONTINUE'
 
-    def evaluate_question(self, job_description, transcript, question):
-        ''' Provide stable criterion evidence so evaluation persistence can be tested without Qwen3.6. '''
-        return f'The transcript provides relevant evidence for: {question}'
-
-    def final_choice(self, job_description, transcript, answers):
-        ''' Provide a fixed PROGRESS outcome so final evaluation persistence remains deterministic in tests. '''
-        return 'PROGRESS'
+    def evaluate(self, job_description, transcript, questions):
+        ''' Provide deterministic batched evaluation without starting the vLLM worker in tests. '''
+        answers = [f'The transcript provides relevant evidence for: {question}' for question in questions]
+        return {'answers': answers, 'result': 'PROGRESS', 'error': ''}
 
 @pytest.fixture(autouse=True)
 def fake_model_runtime():
