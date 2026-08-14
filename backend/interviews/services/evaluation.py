@@ -3,6 +3,7 @@
 import logging, threading
 
 from django.db import close_old_connections
+from tqdm import tqdm
 
 from interviews.models import EvaluationAnswer, InterviewSession, JobApplication
 from interviews.services.runtime import model_runtime
@@ -39,15 +40,19 @@ def evaluate_interview(interview_id):
         if not questions:
             return False
 
-        for index, question in enumerate(questions):
-            answer = model_runtime.suite.evaluate_question(job_description, transcript, question).strip()
+        with tqdm(total=len(questions), desc='Evaluating criteria', unit='criterion') as progress:
+            for index, question in enumerate(questions):
+                progress.set_postfix_str(f'{index + 1}/{len(questions)}')
+                answer = model_runtime.suite.evaluate_question(job_description, transcript, question).strip()
 
-            if not answer:
-                return False
+                if not answer:
+                    return False
 
-            EvaluationAnswer.objects.create(interview=interview, question_index=index, question=question, answer=answer)
-            answers.append({'question': question, 'answer': answer})
+                EvaluationAnswer.objects.create(interview=interview, question_index=index, question=question, answer=answer)
+                answers.append({'question': question, 'answer': answer})
+                progress.update()
 
+        print('Generating final evaluation decision...', flush=True)
         result = model_runtime.suite.final_choice(job_description, transcript, answers)
 
         if result not in ['PROGRESS', 'NOT_PROGRESS']:

@@ -14,3 +14,4 @@ soundfile
 huggingface-hub
 onnxruntime-gpu
 silero-vad==6.2.1
+tqdm
