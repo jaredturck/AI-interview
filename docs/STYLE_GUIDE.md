@@ -65,7 +65,7 @@ Framework/runtime constraints beat style rules.
 Normal strings use single quotes:
 
 ```python
-model_name = 'Qwen/Qwen3.5-9B'
+model_name = 'Qwen/Qwen3.6-27B'
 message = f'Loading {model_name}'
 ```
 
@@ -247,8 +247,8 @@ For every model change, know:
 - device;
 - weight precision;
 - activation/compute precision where relevant;
-- load/unload lifecycle;
-- whether it is live-only or evaluator-only.
+- residency lifecycle;
+- which application roles share the model.
 
 Keep these facts synchronized with `MODELS.md`.
 
@@ -263,7 +263,7 @@ Treat these as hot or latency-sensitive until measured otherwise:
 - ASR;
 - interviewer/safety/misuse inference;
 - TTS;
-- GPU load/unload transitions;
+- shared-model GPU placement;
 - evaluator generation.
 
 Before changing them, understand call frequency, allocations, device transfers and synchronization. Benchmark material changes on the target dual-RTX-3090 host.

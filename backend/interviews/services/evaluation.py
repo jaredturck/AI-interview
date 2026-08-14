@@ -44,7 +44,7 @@ def evaluate_interview(interview_id):
         error = evaluation.get('error') or ''
 
         if error:
-            LOGGER.error('Evaluator worker failed: %s', error)
+            LOGGER.error('Evaluator failed: %s', error)
             return False
 
         if len(model_answers) != len(questions) or result not in ['PROGRESS', 'NOT_PROGRESS']:

@@ -19,7 +19,7 @@ flowchart LR
     Grace --> ASR[Qwen3-ASR · GPU 1]
     Hold --> ASR
     ASR --> Candidate[Persist candidate text]
-    Candidate --> Interviewer[Qwen3.5 interviewer · GPU 0]
+    Candidate --> Interviewer[Qwen3.6 shared interviewer · GPU 0 + GPU 1]
     Interviewer --> TTS[Qwen3-TTS · GPU 0]
 ```
 

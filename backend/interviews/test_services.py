@@ -1,5 +1,7 @@
 ''' Verify role-neutral live interview policy, immutable job snapshots and post-interview evaluation services. '''
 
+from unittest.mock import Mock
+
 import pytest
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -71,6 +73,19 @@ def test_repeated_misuse_terminates(interview):
     assert result['finished'] is True
     interview.refresh_from_db()
     assert interview.status == 'terminated'
+
+def test_evaluation_runtime_reuses_resident_model_stack(interview, monkeypatch):
+    ''' Verify evaluation changes inference ownership without loading or unloading GPU models. '''
+    load_models = Mock()
+    monkeypatch.setattr(model_runtime.suite, 'load_models', load_models)
+
+    assert model_runtime.begin_evaluation(interview.id) is True
+    assert model_runtime.evaluating is True
+    assert model_runtime.active_interview_id is None
+    load_models.assert_not_called()
+
+    model_runtime.finish_evaluation()
+    assert model_runtime.evaluating is False
 
 @pytest.mark.django_db
 def test_evaluator_uses_job_snapshot_and_persists_every_criterion(interview):

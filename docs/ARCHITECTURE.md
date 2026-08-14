@@ -7,9 +7,9 @@ flowchart LR
     Browser[React + TypeScript] -->|JSON API| API[Django]
     Browser <-->|Authenticated WebSocket| WS[Django Channels]
     API --> DB[(SQLite / application DB)]
-    WS --> Live[Realtime model suite]
-    Live --> DB
-    DB --> Eval[Qwen3.6 evaluator]
+    WS --> Runtime[Resident model suite]
+    Runtime --> DB
+    DB --> Eval[Resident Qwen3.6 evaluation]
     Admin[Django Admin] --> API
 ```
 
@@ -18,7 +18,7 @@ flowchart LR
 | React | Candidate routing, microphone/media state, transcript UI and accessibility controls. |
 | Django JSON APIs | Authentication, jobs, applications, interview setup/status and review requests. |
 | Channels | One live interview connection, audio turn state and model orchestration. |
-| Model runtime | Exclusive ownership of the dual-GPU live/evaluator stack. |
+| Model runtime | Serialized inference ownership over one permanently resident dual-GPU model suite. |
 | Database | Recruitment state, confirmed transcript text, criterion assessments and outcomes. |
 
 Django does not render candidate pages. Production serves the React SPA and proxies `/api`, `/ws` and `/admin` to Django.
@@ -45,7 +45,7 @@ Typed input enters interview policy directly. Voice input first passes the turn-
 flowchart LR
     Input[Confirmed candidate text] --> GuardIn[Qwen3Guard]
     GuardIn --> Misuse[Qwen3.5-4B misuse]
-    Misuse --> Interviewer[Qwen3.5-9B interviewer]
+    Misuse --> Interviewer[Qwen3.6-27B shared model]
     Interviewer --> GuardOut[Qwen3Guard]
     GuardOut --> Text[Assistant transcript]
     GuardOut --> TTS[Qwen3-TTS WAV]
@@ -58,31 +58,26 @@ The opening question uses a non-persisted internal user instruction so the model
 ```mermaid
 stateDiagram-v2
     [*] --> Idle
-    Idle --> Live: preload or interview reservation
-    Live --> Live: unfinished disconnect / next interview
-    Live --> Evaluator: interview completes
-    Evaluator --> Live: evaluation finishes
+    Idle --> Interview: reserve interview
+    Interview --> Idle: unfinished disconnect
+    Interview --> Evaluation: interview completes
+    Evaluation --> Idle: evaluation finishes
 ```
 
-`ModelRuntime` permits one live interview **or** one final evaluation per process. Development `runserver` preloads the live stack in the serving child; other ASGI processes can lazy-load it on first reservation.
+All models remain loaded in every state. `ModelRuntime` only serializes active inference so one live interview or one final evaluation generates at a time. Development `runserver` preloads the complete stack in the serving child; other ASGI processes can lazy-load it on first use.
 
 ## Evaluation
 
-Final evaluation deliberately uses a separate process because the Django process has already initialized several CUDA runtimes during the live interview.
-
 ```mermaid
 flowchart LR
-    Input[Job + transcript + criteria] --> Spawn[Spawn clean evaluator process]
-    Spawn --> Batch[vLLM criterion batch]
-    Batch --> Cache[Prefix cache]
-    Cache --> TP[Qwen3.6 W8A16 TP=2]
-    TP --> Answers[EvaluationAnswer rows]
+    Input[Job + transcript + criteria] --> Batch[Criterion microbatches]
+    Batch --> Qwen[Resident Qwen3.6 NF4]
+    Qwen --> Answers[EvaluationAnswer rows]
     Answers --> Reason[Final reasoning]
-    Reason --> Choice[PROGRESS / NOT_PROGRESS]
-    Choice --> Exit[Process exit + live-stack reload]
+    Reason --> Choice[Constrained PROGRESS / NOT_PROGRESS]
 ```
 
-All criteria are independent and are submitted together; the final decision remains dependent on the completed criterion assessments. The evaluator process must exit before the realtime stack is reloaded. Inference failure becomes `evaluation_failed`; it never fabricates a recruitment outcome.
+The evaluator uses Transformers directly. Criteria are independent and processed in small batches to bound dynamic VRAM while the auxiliary stack remains resident. The final decision still depends on all completed criterion assessments. Inference failure becomes `evaluation_failed`; it never fabricates a recruitment outcome.
 
 ## Persistence and privacy boundary
 

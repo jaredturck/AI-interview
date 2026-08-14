@@ -26,9 +26,12 @@ Automated tests do not validate real CUDA execution. On the dual-RTX-3090 host v
 ```text
 Smart Turn session provider -> CUDAExecutionProvider device 1
 Silero -> CPU
-Qwen live-model device placement -> docs/MODELS.md
-Qwen3.6 evaluation -> vLLM reports TP=2 and the criterion bar reaches the configured criterion count
-Qwen3.6 evaluation -> both GPUs show concurrent compute and no CPU weight offload
+Qwen model placement -> docs/MODELS.md
+Qwen3.6 -> NF4 4-bit BitsAndBytes with BF16 compute
+Qwen3.6 -> hf_device_map contains GPU 0 + GPU 1 and no CPU/disk offload
+Transformers attention -> SDPA; external flash-attn is not imported
+Startup -> all interview/evaluation models stay resident after preload
+Evaluation -> criteria complete in microbatches and both GPUs remain inside memory limits
 Qwen3.6 regression set -> criterion evidence and PROGRESS / NOT_PROGRESS decisions remain materially consistent
 Open microphone -> Chrome microphone indicator remains active
 Cough/background noise -> no candidate message

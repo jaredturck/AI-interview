@@ -1,84 +1,74 @@
 # Performance
 
-## Live placement
+## Permanently resident placement
 
 ```text
 GPU 0 (24 GB)
-  Qwen3.5-9B INT8
+  Qwen3.6-27B NF4 shard
   Qwen3-TTS-1.7B BF16
+  Qwen3Guard-Gen-4B INT8
 
 GPU 1 (24 GB)
+  Qwen3.6-27B NF4 shard
   Qwen3-ASR-1.7B BF16
-  Qwen3Guard-Gen-4B INT8
-  Qwen3.5-4B INT8
+  Qwen3.5-4B misuse INT8
   Smart Turn v3.2 FP32
 
 CPU
   Silero VAD
 ```
 
-Smart Turn placement is an accuracy/latency choice, not a VRAM workaround. Silero remains CPU-side because its continuous VAD workload is tiny; Smart Turn only runs after pause probes.
+The Qwen3.6 placement cap is 10 GiB per GPU. It is intentionally lower than each card's physical capacity so auxiliary weights, KV cache, activations, kernel workspaces and allocator overhead retain headroom.
 
-## Evaluation throughput
+These are placement limits, not claims about exact CUDA peaks. Actual free/allocated/reserved memory must be measured on the target host because PyTorch, ONNX Runtime and qwentts.cpp use separate CUDA allocators.
 
-The final evaluator is optimized for the actual workload: many independent criteria sharing the same job description and transcript.
+## Shared Qwen3.6 execution
 
-```mermaid
-flowchart LR
-    Q[Criteria 1..N] --> Batch[vLLM batch]
-    Batch --> Cache[Shared-prefix cache]
-    Cache --> TP[Qwen3.6 W8A16 tensor parallel]
-    TP --> G0[GPU 0]
-    TP --> G1[GPU 1]
-    G0 --> A[Criterion answers]
-    G1 --> A
-    A --> Final[Final reasoning + structured decision]
+Qwen3.6 serves both live interviewing and final evaluation. This removes the previous evaluator cold-load cycle entirely.
+
+```text
+Interview turn
+  -> Qwen3.6 resident model
+
+Final evaluation
+  -> criterion microbatches of 2
+  -> final reasoning
+  -> constrained binary decision
 ```
+
+Transformers/Accelerate model placement splits whole modules across the two GPUs; it is not vLLM-style tensor parallelism. The benefit of this design is permanent residency and a much simpler inference stack rather than maximum multi-request serving throughput.
+
+## Attention
+
+Transformers models explicitly use `attn_implementation='sdpa'`. No external `flash-attn` binary is required. PyTorch SDPA selects an available attention kernel for the installed hardware/runtime and avoids binding the project to a separate FlashAttention C++/CUDA ABI.
+
+## Evaluation memory controls
 
 | Setting | Value | Purpose |
 | --- | --- | --- |
-| Tensor parallel | 2 | Both GPUs participate in each model layer instead of assigning whole layer ranges to separate GPUs. |
-| Criterion batch | All configured criteria | Gives the GPUs multiple active sequences instead of twelve batch-size-one generations. |
-| Prefix caching | Enabled | Reuses the common job/transcript prefix across criterion prompts. |
-| Model mode | Language-model-only | Skips the unused vision encoder/profiling. |
-| Quantization | W8A16 compressed-tensors | 8-bit weights with BF16 activations; avoids BitsAndBytes 8-bit eager fallback. |
-| GPU memory target | 0.90 per GPU | Leaves host/display headroom while retaining ample KV/cache capacity. |
-| Maximum sequences | 32 | Keeps the normal 12-criterion workload schedulable in one engine. |
-| Batched-token budget | 16,384 | Gives chunked prefill enough work for throughput-oriented scheduling without reserving the model's full context window. |
-| Evaluator context | 32,768 tokens | Keeps KV/cache sizing realistic for a 30-minute interview instead of provisioning Qwen3.6's much larger native context. |
-| CPU offload | Disabled | Keeps evaluator weights on the two GPUs and avoids host-device weight transfers during generation. |
-| Eager mode | Disabled | Allows vLLM to use its compiled/CUDA-graph execution path when supported. |
-| Performance mode | Throughput | Favors aggregate tokens/s for the high-concurrency criterion batch. |
+| Qwen3.6 weights | BitsAndBytes NF4 4-bit | Makes the 27B shared model resident beside the realtime models. |
+| Compute dtype | BF16 | Keeps matrix computation and activations at an appropriate Ampere-supported precision. |
+| Nested quantization | Enabled | Reduces 4-bit quantization metadata overhead. |
+| Shared-model placement cap | 10 GiB per GPU | Prevents the shared model from consuming all device capacity. |
+| Criterion microbatch | 2 | Bounds simultaneous KV/activation growth during evaluation. |
+| Active inference | Serialized | Avoids interview and evaluation activation peaks overlapping. |
+| CPU weight offload | Not intended | Keeps model execution on the two RTX 3090s. |
 
-The previous evaluator used Transformers `device_map='auto'` and generated one criterion at a time. That placement solved VRAM capacity but did not provide tensor-parallel execution; the new path is designed for throughput rather than model placement alone.
+## Target-host measurements
 
-### Expected bottlenecks after this change
+Before treating the memory map as final, record these on the actual dual-3090 host after startup and during representative interview/evaluation calls:
 
-- Autoregressive decoding remains sequential per sequence; batching improves aggregate throughput rather than making one token free.
-- TP=2 adds inter-GPU collectives. PCIe/NVLink topology therefore affects scaling.
-- Model startup still costs tens of seconds because the live stack and evaluator cannot occupy the GPUs together. The patch improves inference throughput, not evaluator cold-load time.
-- The final decision depends on all criterion answers and remains a separate generation.
-
-### Target-host measurements
-
-Measure before/after on the same transcript and rubric:
-
-| Metric | Goal |
-| --- | --- |
-| Total criterion wall time | Materially lower than twelve sequential Transformers calls. |
-| GPU 0 / GPU 1 utilization | Both cards active together during the criterion batch. |
-| Prompt throughput | Higher from batching + shared-prefix reuse. |
-| Output throughput | Higher aggregate tokens/s from multi-sequence scheduling. |
-| VRAM | No CPU weight offload; evaluator should remain inside the two 24 GB cards. |
-| Decision quality | No material regression versus the previous INT8 evaluator on a fixed evaluation set. |
+- driver-level free/total memory for each GPU;
+- `torch.cuda.memory_allocated()` and `memory_reserved()` for each GPU;
+- peak allocated memory for an interviewer turn;
+- peak allocated memory for a two-criterion evaluation batch;
+- end-to-end interviewer latency and complete evaluation wall time.
 
 Useful host-side observation:
 
 ```bash
 nvidia-smi dmon -s pucm -d 1
 ```
-
-vLLM's criterion progress bar also reports prompt/output token throughput.
 
 ## Voice latency path
 
@@ -89,12 +79,8 @@ vLLM's criterion progress bar also reports prompt/output token throughput.
  -> Smart Turn
  -> 0.5 s completion grace OR ~6 s incomplete-turn hold
  -> Qwen3-ASR
- -> safety + misuse + interviewer
+ -> safety + misuse + Qwen3.6 interviewer
  -> Qwen3-TTS
 ```
 
 The hold timer is conversational policy, not model latency. It exists only when Smart Turn considers a phrase incomplete.
-
-## Model lifecycle
-
-Development `runserver` preloads the live suite. Final evaluation unloads it, runs Qwen3.6 in a fresh spawned process, waits for that process to exit, then restores the live stack. One dual-3090 worker supports one live interview or one evaluation at a time.

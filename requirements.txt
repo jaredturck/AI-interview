@@ -14,5 +14,4 @@ soundfile
 huggingface-hub
 onnxruntime-gpu
 silero-vad==6.2.1
-tqdm
-vllm==0.21.0
+# External flash-attn is intentionally not used; Transformer attention runs through PyTorch SDPA.

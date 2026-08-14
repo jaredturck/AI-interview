@@ -1,21 +1,24 @@
-''' Bind the fixed Qwen interviewer, safety, speech, misuse and evaluator checkpoints to application-facing model interfaces. '''
+''' Bind the fixed Qwen interview, safety, speech, misuse and evaluation checkpoints to application-facing model interfaces. '''
 
-import gc, io, re, threading
+import io, re, threading
 
 import soundfile as sf
 import torch
 from transformers import AutoModelForCausalLM, AutoModelForMultimodalLM, AutoProcessor, AutoTokenizer, BitsAndBytesConfig, LogitsProcessorList
 
 from interviews.services.choice import ChoiceLogitsProcessor
-from interviews.services.content import MISUSE_PROMPT
-from interviews.services.evaluator_runtime import evaluate_in_worker
+from interviews.services.content import EVALUATOR_QUESTION_PROMPT, FINAL_CHOICE_PROMPT, FINAL_OUTPUT_PROMPT, MISUSE_PROMPT
 from interviews.services.qwen_tts_cpp import QwenTTSModel
 from interviews.services.turn_detection import TurnDetector
 
 ASR_MODEL = 'Qwen/Qwen3-ASR-1.7B-hf'
-INTERVIEWER_MODEL = 'Qwen/Qwen3.5-9B'
+SHARED_MODEL = 'Qwen/Qwen3.6-27B'
 GUARD_MODEL = 'Qwen/Qwen3Guard-Gen-4B'
 MISUSE_MODEL = 'Qwen/Qwen3.5-4B'
+SHARED_MODEL_MAX_MEMORY = {0: '10GiB', 1: '10GiB'}
+EVALUATOR_BATCH_SIZE = 2
+EVALUATOR_QUESTION_MAX_TOKENS = 2048
+EVALUATOR_REASONING_MAX_TOKENS = 4096
 TTS_SPEAKER = 'vivian'
 TTS_INSTRUCTION = 'Speak clearly, calmly, warmly, and at a natural interview pace.'
 
@@ -33,30 +36,51 @@ def device_map_for(device):
     ''' Pin a model to one selected GPU using the Transformers root device-map format. '''
     return {'': device}
 
-class QwenMultimodalChatModel:
-    ''' Serve the realtime Qwen/Qwen3.5-9B interviewer through the shared multimodal Transformers wrapper. '''
-    def __init__(self, model_name, device):
-        ''' Prepare Qwen3.5-9B in INT8 on its assigned realtime GPU. '''
+def evaluator_messages(system_prompt, context):
+    ''' Build one text-only Qwen3.6 evaluator request using the same chat interface as live interviewing. '''
+    return [
+        {'role': 'system', 'content': system_prompt},
+        {'role': 'user', 'content': context}
+    ]
+
+class QwenSharedModel:
+    ''' Serve one permanently resident Qwen3.6-27B instance for interviewing, job metadata and final evaluation. '''
+    def __init__(self):
+        ''' Load Qwen3.6-27B as NF4 4-bit weights with BF16 compute, balanced across both interview GPUs. '''
+        quantization = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type='nf4', bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_use_double_quant=True)
         model_kwargs = {
-            'device_map': device_map_for(device),
-            'dtype': torch.float16,
+            'device_map': 'balanced',
+            'max_memory': SHARED_MODEL_MAX_MEMORY,
+            'dtype': torch.bfloat16,
             'attn_implementation': 'sdpa',
             'low_cpu_mem_usage': True,
-            'quantization_config': BitsAndBytesConfig(load_in_8bit=True)
+            'quantization_config': quantization
         }
-        self.processor = AutoProcessor.from_pretrained(model_name)
-        self.model = AutoModelForMultimodalLM.from_pretrained(model_name, **model_kwargs)
+        self.processor = AutoProcessor.from_pretrained(SHARED_MODEL)
+        self.processor.tokenizer.padding_side = 'left'
+        self.model = AutoModelForMultimodalLM.from_pretrained(SHARED_MODEL, **model_kwargs)
         self.model.eval()
 
+    def input_device(self):
+        ''' Return the device holding Qwen3.6 input embeddings so Accelerate can dispatch later layers across both GPUs. '''
+        return self.model.get_input_embeddings().weight.device
+
     def prepare_inputs(self, messages, enable_thinking):
-        ''' Apply the Qwen multimodal chat template with the requested thinking mode. '''
+        ''' Apply the Qwen3.6 chat template for one text-only request. '''
         prompt = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
         inputs = self.processor(text=[prompt], return_tensors='pt', padding=True)
-        input_device = next(self.model.parameters()).device
-        return inputs.to(input_device)
+        return inputs.to(self.input_device())
+
+    def prepare_batch(self, message_batches, enable_thinking):
+        ''' Tokenize a small batch of independent Qwen3.6 evaluator requests with left padding. '''
+        prompts = [self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True,
+            enable_thinking=enable_thinking) for messages in message_batches]
+        inputs = self.processor(text=prompts, return_tensors='pt', padding=True)
+        return inputs.to(self.input_device())
 
     def generate(self, messages, max_tokens, thinking, temperature, top_p):
-        ''' Generate free-form Qwen3.5-9B interviewer text with the requested thinking mode. '''
+        ''' Generate one free-form Qwen3.6 response for interviewer, metadata or evaluator reasoning. '''
         inputs = self.prepare_inputs(messages, thinking)
 
         with torch.inference_mode():
@@ -67,8 +91,20 @@ class QwenMultimodalChatModel:
         text = self.processor.decode(output, skip_special_tokens=True)
         return strip_thinking(text)
 
+    def generate_batch(self, message_batches, max_tokens, thinking, temperature, top_p):
+        ''' Generate a small evaluator microbatch while keeping the shared model and auxiliary stack resident. '''
+        inputs = self.prepare_batch(message_batches, thinking)
+
+        with torch.inference_mode():
+            generation = self.model.generate(**inputs, max_new_tokens=max_tokens, do_sample=True, temperature=temperature,
+                top_p=top_p, top_k=20, repetition_penalty=1.0)
+
+        output = generation[:, inputs['input_ids'].shape[-1]:]
+        texts = self.processor.batch_decode(output, skip_special_tokens=True)
+        return [strip_thinking(text) for text in texts]
+
     def choice(self, messages, choices):
-        ''' Constrain Qwen3.5-9B output where application logic requires an exact approved decision. '''
+        ''' Constrain Qwen3.6 output where application logic requires an exact approved decision. '''
         inputs = self.prepare_inputs(messages, False)
         tokenizer = self.processor.tokenizer
         choice_token_ids = [tokenizer.encode(choice, add_special_tokens=False) for choice in choices]
@@ -90,6 +126,7 @@ class QwenTextModel:
         model_kwargs = {
             'device_map': device_map_for(device),
             'dtype': torch.float16,
+            'attn_implementation': 'sdpa',
             'low_cpu_mem_usage': True,
             'quantization_config': BitsAndBytesConfig(load_in_8bit=True)
         }
@@ -141,10 +178,11 @@ class QwenASRModel:
 class QwenGuardModel:
     ''' Protect candidate input and interviewer output with Qwen/Qwen3Guard-Gen-4B. '''
     def __init__(self):
-        ''' Keep Qwen3Guard-Gen-4B resident in INT8 on GPU 1 for realtime safety checks. '''
+        ''' Keep Qwen3Guard-Gen-4B resident in INT8 on GPU 0 to balance the always-resident dual-GPU stack. '''
         model_kwargs = {
-            'device_map': device_map_for('cuda:1'),
+            'device_map': device_map_for('cuda:0'),
             'dtype': torch.float16,
+            'attn_implementation': 'sdpa',
             'low_cpu_mem_usage': True,
             'quantization_config': BitsAndBytesConfig(load_in_8bit=True)
         }
@@ -170,83 +208,39 @@ def load_qwen_tts():
     return QwenTTSModel()
 
 class RealModelSuite:
-    ''' Own the realtime Qwen stack, turn detector and isolated Qwen3.6 evaluator lifecycle. '''
+    ''' Own one permanently resident dual-GPU model stack shared by live interviewing and final evaluation. '''
     def __init__(self):
-        ''' Track model residency and serialize realtime/evaluator GPU ownership transitions. '''
+        ''' Track model residency while keeping all inference checkpoints alive for the lifetime of the Django worker. '''
         self.lock = threading.RLock()
         self.asr = None
         self.tts = None
         self.turn_detector = None
-        self.interviewer_model = None
+        self.shared_model = None
         self.misuse_model = None
         self.guard_model = None
-        self.mode = 'idle'
 
-    def clear_cuda(self):
-        ''' Reclaim GPU memory after switching between the realtime Qwen stack and Qwen3.6 evaluation. '''
-        gc.collect()
-        torch.cuda.empty_cache()
-
-    def load_live(self):
-        ''' Make the realtime speech, turn-detection, safety and interviewer stack resident for immediate interviews. '''
+    def load_models(self):
+        ''' Load the complete interview and evaluation stack once, with Qwen3.6 shared across both GPUs. '''
         with self.lock:
-            if self.mode == 'live' and self.interviewer_model:
+            if self.models_loaded():
                 return
 
-            self.unload_evaluator()
-            print('Loading Qwen3-TTS realtime model...', flush=True)
+            print('Loading Qwen3-TTS model on GPU 0...', flush=True)
             self.tts = load_qwen_tts()
-            print('Loading Qwen3-ASR realtime model...', flush=True)
+            print('Loading Qwen3-ASR model on GPU 1...', flush=True)
             self.asr = QwenASRModel()
-            print('Loading Silero VAD and Smart Turn v3.2 realtime models...', flush=True)
+            print('Loading Silero VAD and Smart Turn v3.2 on CPU/GPU 1...', flush=True)
             self.turn_detector = TurnDetector()
-            print('Loading Qwen3Guard realtime model...', flush=True)
+            print('Loading Qwen3Guard model on GPU 0...', flush=True)
             self.guard_model = QwenGuardModel()
-            print('Loading Qwen3.5-4B misuse model...', flush=True)
+            print('Loading Qwen3.5-4B misuse model on GPU 1...', flush=True)
             self.misuse_model = QwenTextModel(MISUSE_MODEL, 'cuda:1')
-            print('Loading Qwen3.5-9B interviewer model...', flush=True)
-            self.interviewer_model = QwenMultimodalChatModel(INTERVIEWER_MODEL, 'cuda:0')
-            self.mode = 'live'
+            print('Loading shared Qwen3.6-27B NF4 model across GPU 0 + GPU 1...', flush=True)
+            self.shared_model = QwenSharedModel()
 
-    def live_loaded(self):
-        ''' Gate interview availability on every required realtime model being resident. '''
-        return self.mode == 'live' and all([self.asr, self.tts, self.turn_detector, self.interviewer_model, self.misuse_model, self.guard_model])
-
-    def unload_live(self):
-        ''' Free both GPUs for Qwen3.6 final evaluation by releasing the realtime model stack. '''
-        with self.lock:
-            self.asr = None
-
-            if self.tts:
-                self.tts.close()
-
-            self.tts = None
-            self.turn_detector = None
-            self.interviewer_model = None
-            self.misuse_model = None
-            self.guard_model = None
-
-            if self.mode == 'live':
-                self.mode = 'idle'
-
-            self.clear_cuda()
-
-    def load_evaluator(self):
-        ''' Release the realtime stack before the isolated vLLM evaluator process takes both GPUs. '''
-        with self.lock:
-            if self.mode == 'evaluator':
-                return
-
-            self.unload_live()
-            self.mode = 'evaluator'
-
-    def unload_evaluator(self):
-        ''' Return parent-process runtime state to idle after the isolated evaluator process exits. '''
-        with self.lock:
-            if self.mode == 'evaluator':
-                self.mode = 'idle'
-
-            self.clear_cuda()
+    def models_loaded(self):
+        ''' Gate interview and evaluation availability on every required resident model being loaded. '''
+        return all([self.asr, self.tts, self.turn_detector, self.shared_model, self.misuse_model, self.guard_model])
 
     def has_speech(self, audio, sample_rate):
         ''' Reject browser audio segments that do not contain meaningful human speech. '''
@@ -268,21 +262,21 @@ class RealModelSuite:
         return output.getvalue()
 
     def guard_user(self, text):
-        ''' Block unsafe candidate requests before they reach the Qwen3.5 interviewer. '''
+        ''' Block unsafe candidate requests before they reach the shared Qwen3.6 interviewer. '''
         return self.guard_model.classify([{'role': 'user', 'content': text}])
 
     def guard_response(self, user_text, assistant_text):
-        ''' Block unsafe Qwen3.5 interviewer output before it is shown or synthesized. '''
+        ''' Block unsafe Qwen3.6 interviewer output before it is shown or synthesized. '''
         return self.guard_model.classify([
             {'role': 'user', 'content': user_text},
             {'role': 'assistant', 'content': assistant_text}
         ])
 
     def interviewer(self, system_prompt, turns, max_tokens=32):
-        ''' Use Qwen3.5-9B without thinking to generate the next short adaptive interview turn. '''
+        ''' Use Qwen3.6-27B without thinking to generate the next short adaptive interview turn. '''
         messages = [{'role': 'system', 'content': system_prompt}]
         messages.extend({'role': turn['role'], 'content': turn['text']} for turn in turns)
-        return self.interviewer_model.generate(messages, max_tokens=max_tokens, thinking=False, temperature=0.7, top_p=0.8)
+        return self.shared_model.generate(messages, max_tokens=max_tokens, thinking=False, temperature=0.7, top_p=0.8)
 
     def job_metadata(self, description):
         ''' Extract a short job title and optional subtitle from the staff-authored vacancy description. '''
@@ -292,7 +286,7 @@ class RealModelSuite:
             {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': description}
         ]
-        return self.interviewer_model.generate(messages, max_tokens=80, thinking=False, temperature=0.2, top_p=0.8)
+        return self.shared_model.generate(messages, max_tokens=80, thinking=False, temperature=0.2, top_p=0.8)
 
     def misuse(self, transcript):
         ''' Use Qwen3.5-4B to decide whether accumulated misuse should continue, redirect or terminate the interview. '''
@@ -303,6 +297,34 @@ class RealModelSuite:
         return self.misuse_model.choice(messages, ['CONTINUE', 'REDIRECT', 'TERMINATE'])
 
     def evaluate(self, job_description, transcript, questions):
-        ''' Run the complete Qwen3.6 evaluation workload in one isolated, batched vLLM process. '''
-        self.load_evaluator()
-        return evaluate_in_worker(job_description, transcript, questions)
+        ''' Evaluate every criterion and final decision with the same resident Qwen3.6 model used for interviewing. '''
+        common_context = f'JOB DESCRIPTION\n{job_description}\n\nINTERVIEW TRANSCRIPT\n{transcript}\n\nCRITERION\n'
+        question_messages = [evaluator_messages(EVALUATOR_QUESTION_PROMPT, common_context + question) for question in questions]
+        answers = []
+
+        for start in range(0, len(question_messages), EVALUATOR_BATCH_SIZE):
+            batch = question_messages[start:start + EVALUATOR_BATCH_SIZE]
+            batch_answers = self.shared_model.generate_batch(batch, max_tokens=EVALUATOR_QUESTION_MAX_TOKENS, thinking=True,
+                temperature=1.0, top_p=0.95)
+            answers.extend(batch_answers)
+            print(f'Evaluated {len(answers)}/{len(questions)} criteria.', flush=True)
+
+        if len(answers) != len(questions) or any(not answer for answer in answers):
+            return {'answers': answers, 'result': '', 'error': 'Qwen3.6 returned an incomplete criterion batch.'}
+
+        assessments = '\n\n'.join(f'{index + 1}. {question}\nAssessment: {answers[index]}' for index, question in enumerate(questions))
+        final_context = f'JOB DESCRIPTION\n{job_description}\n\nINTERVIEW TRANSCRIPT\n{transcript}\n\nCRITERION ASSESSMENTS\n{assessments}'
+        reasoning_messages = evaluator_messages(FINAL_CHOICE_PROMPT, final_context)
+        decision_analysis = self.shared_model.generate(reasoning_messages, max_tokens=EVALUATOR_REASONING_MAX_TOKENS, thinking=True,
+            temperature=1.0, top_p=0.95)
+
+        if not decision_analysis:
+            return {'answers': answers, 'result': '', 'error': 'Qwen3.6 returned no final evaluation reasoning.'}
+
+        choice_context = f'{final_context}\n\nFINAL DECISION ANALYSIS\n{decision_analysis}'
+        result = self.shared_model.choice(evaluator_messages(FINAL_OUTPUT_PROMPT, choice_context), ['PROGRESS', 'NOT_PROGRESS'])
+
+        if result not in ['PROGRESS', 'NOT_PROGRESS']:
+            return {'answers': answers, 'result': '', 'error': 'Qwen3.6 returned an invalid final evaluation decision.'}
+
+        return {'answers': answers, 'result': result, 'error': ''}

@@ -1,11 +1,11 @@
-''' Coordinate exclusive dual-GPU ownership between the resident realtime Qwen stack and Qwen3.6 evaluation. '''
+''' Coordinate serialized inference over one permanently resident dual-GPU model stack. '''
 
 import threading
 
 class ModelRuntime:
-    ''' Enforce single-interview access and exclusive evaluator ownership of the dual-GPU model worker. '''
+    ''' Enforce one active interview or evaluation while every model remains resident on the worker GPUs. '''
     def __init__(self):
-        ''' Track which interview or evaluation currently owns the process-wide model worker. '''
+        ''' Track which interview or evaluation currently owns inference on the process-wide model suite. '''
         self.lock = threading.RLock()
         self.active_interview_id = None
         self.evaluating = False
@@ -20,33 +20,33 @@ class ModelRuntime:
 
         return self._suite
 
-    def preload_live(self):
-        ''' Make every realtime Qwen model resident during Django server startup before interviews can be accepted. '''
-        self.suite.load_live()
+    def preload_models(self):
+        ''' Make the complete interview/evaluation model stack resident during Django server startup. '''
+        self.suite.load_models()
 
     def reserve_interview(self, interview_id):
-        ''' Grant one browser interview exclusive use of the realtime Qwen stack, loading it first when needed. '''
+        ''' Grant one browser interview exclusive inference access without unloading any resident model. '''
         interview_id = str(interview_id)
 
         with self.lock:
             if self.evaluating or self.active_interview_id:
                 return False
 
-            if not self.suite.live_loaded():
-                self.suite.load_live()
+            if not self.suite.models_loaded():
+                self.suite.load_models()
 
             self.active_interview_id = interview_id
 
         return True
 
     def release_interview(self, interview_id):
-        ''' Return the realtime worker to available capacity after the matching browser disconnects. '''
+        ''' Return inference capacity after the matching browser disconnects while leaving every model resident. '''
         with self.lock:
             if self.active_interview_id == str(interview_id):
                 self.active_interview_id = None
 
     def begin_evaluation(self, interview_id):
-        ''' Transfer exclusive GPU ownership from a completed interview to Qwen3.6 final evaluation. '''
+        ''' Transfer serialized inference ownership from the completed interview to resident Qwen3.6 evaluation. '''
         interview_id = str(interview_id)
 
         with self.lock:
@@ -56,44 +56,32 @@ class ModelRuntime:
             if self.active_interview_id and self.active_interview_id != interview_id:
                 return False
 
+            if not self.suite.models_loaded():
+                self.suite.load_models()
+
             self.active_interview_id = None
             self.evaluating = True
-
-        loaded = False
-
-        try:
-            self.suite.load_evaluator()
-            loaded = True
-
-        finally:
-            if not loaded:
-                with self.lock:
-                    self.evaluating = False
 
         return True
 
     def finish_evaluation(self):
-        ''' Restore the realtime Qwen stack immediately after Qwen3.6 final evaluation releases the GPUs. '''
-        try:
-            self.suite.load_live()
-
-        finally:
-            with self.lock:
-                self.evaluating = False
+        ''' Release evaluation ownership without changing GPU model residency. '''
+        with self.lock:
+            self.evaluating = False
 
     def generate_job_metadata(self, description):
-        ''' Generate concise job title metadata only while the shared realtime model worker is otherwise free. '''
+        ''' Generate concise job title metadata only while the shared inference worker is otherwise free. '''
         with self.lock:
             if self.evaluating or self.active_interview_id:
                 return ''
 
-            if not self.suite.live_loaded():
-                self.suite.load_live()
+            if not self.suite.models_loaded():
+                self.suite.load_models()
 
             return self.suite.job_metadata(description)
 
     def capacity_available(self):
-        ''' Report whether the shared model worker is free for a new interview. '''
+        ''' Report whether the shared resident model worker is free for a new interview. '''
         with self.lock:
             return not self.evaluating and self.active_interview_id is None
 

@@ -6,21 +6,13 @@ from interviews.services.runtime import model_runtime
 
 class FakeModelSuite:
     ''' Mirror the production model-suite interface without loading Qwen checkpoints during tests. '''
-    def load_live(self):
-        ''' Satisfy realtime preload calls without allocating GPU models during tests. '''
+    def load_models(self):
+        ''' Satisfy resident model preload calls without allocating GPU models during tests. '''
         return None
 
-    def live_loaded(self):
+    def models_loaded(self):
         ''' Keep runtime capacity checks available while tests use the fake model suite. '''
         return True
-
-    def load_evaluator(self):
-        ''' Satisfy evaluator handoff without loading Qwen3.6 during tests. '''
-        return None
-
-    def unload_evaluator(self):
-        ''' Mirror evaluator cleanup without holding GPU model state during tests. '''
-        return None
 
     def has_speech(self, audio, sample_rate):
         ''' Treat non-empty test audio as speech unless a test overrides the fake detector. '''
@@ -82,7 +74,7 @@ class FakeModelSuite:
         return 'CONTINUE'
 
     def evaluate(self, job_description, transcript, questions):
-        ''' Provide deterministic batched evaluation without starting the vLLM worker in tests. '''
+        ''' Provide deterministic resident-model evaluation without loading Qwen3.6 during tests. '''
         answers = [f'The transcript provides relevant evidence for: {question}' for question in questions]
         return {'answers': answers, 'result': 'PROGRESS', 'error': ''}
 

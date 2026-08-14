@@ -21,7 +21,7 @@ Silero rejects segments without meaningful speech before Qwen3-ASR. Smart Turn c
 - Each WebSocket audio frame is capped at 20 MB.
 - ffmpeg decoding is bounded to 600 seconds and a 60-second process timeout.
 - Interviews are capped at 30 minutes.
-- `ModelRuntime` grants exclusive ownership of the live/evaluator GPU worker.
+- `ModelRuntime` grants exclusive active inference ownership while the full GPU model stack remains resident.
 
 ## Failure behaviour
 
