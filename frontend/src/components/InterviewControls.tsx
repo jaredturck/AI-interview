@@ -12,6 +12,8 @@ export default function InterviewControls({interview}: {interview: InterviewCont
     const textarea_ref = useRef<HTMLTextAreaElement | null>(null);
     const response_busy = ['idle', 'thinking', 'transcribing', 'speaking', 'connecting', 'loading'].includes(interview.status);
     const voice_busy = response_busy || interview.status === 'confirming';
+    const recording_busy = ['idle', 'connecting', 'loading', 'confirming'].includes(interview.status);
+    const microphone_text = interview.microphone_active ? interview.is_recording ? t('interview.micRecording') : t('interview.micListening') : t('interview.micClosed');
 
     function resize_input(value: string) {
         set_text(value);
@@ -38,6 +40,11 @@ export default function InterviewControls({interview}: {interview: InterviewCont
 
     return (
         <div className="control-island">
+            <div role="status" aria-live="polite" className={`microphone-status ${interview.microphone_active ? 'active' : ''} ${interview.is_recording ? 'recording' : ''}`}>
+                <span className="microphone-status-dot" aria-hidden="true" />
+                <span>{microphone_text}</span>
+                <div className="microphone-level" aria-hidden="true"><span style={{width: `${Math.max(2, interview.audio_level * 100)}%`}} /></div>
+            </div>
             <form onSubmit={submit} className="response-row">
                 <label htmlFor="typed-response" className="sr-only">{t('interview.typeResponse')}</label>
                 <textarea ref={textarea_ref} id="typed-response" value={text} onChange={(event) => resize_input(event.target.value)} onKeyDown={handle_key_down}
@@ -45,9 +52,15 @@ export default function InterviewControls({interview}: {interview: InterviewCont
                 <button type="submit" disabled={!text.trim() || response_busy} className="send-button">{t('interview.send')}</button>
             </form>
             <div className="control-row">
-                <button type="button" disabled={voice_busy && !interview.is_recording} onClick={interview.is_recording ? interview.stop_recording : interview.start_recording}
+                {interview.microphone_mode === 'closed' && <button type="button" disabled={(recording_busy || interview.microphone_requesting) && !interview.is_recording}
+                    onClick={interview.is_recording ? interview.stop_recording : interview.start_recording}
                     className={interview.is_recording ? 'control-button recording' : 'control-button'}>
                     {interview.is_recording ? t('interview.finishSpeaking') : t('interview.speak')}
+                </button>}
+                <button type="button" disabled={interview.microphone_requesting}
+                    onClick={interview.microphone_mode === 'open' ? interview.close_open_microphone : interview.enable_open_microphone}
+                    className={interview.microphone_mode === 'open' ? 'control-button microphone-open' : 'control-button'}>
+                    {interview.microphone_mode === 'open' ? t('interview.closeMic') : t('interview.openMic')}
                 </button>
                 <button type="button" onClick={interview.replay} className="control-button">{t('interview.replay')}</button>
                 <button type="button" disabled={voice_busy} onClick={interview.rephrase} className="control-button">{t('interview.rephrase')}</button>

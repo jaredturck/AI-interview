@@ -64,7 +64,25 @@ export default function InterviewPage() {
                     <Link to="/account" className="ghost-button">{t('interview.account')}</Link>
                 </div>
             </header>
-            {interview.error && <div role="alert" className="interview-error">{interview.error}</div>}
+            {interview.error && interview.microphone_setup_complete && <div role="alert" className="interview-error">{interview.error}</div>}
+            {!interview.microphone_setup_complete && <div className="microphone-consent-backdrop">
+                <section className="microphone-consent" role="dialog" aria-modal="true" aria-labelledby="microphone-consent-title">
+                    <div className="microphone-consent-icon" aria-hidden="true">●</div>
+                    <p className="eyebrow">{t('interview.microphoneSetup')}</p>
+                    <h2 id="microphone-consent-title">{t('interview.microphoneTitle')}</h2>
+                    <p>{t('interview.microphoneDescription')}</p>
+                    {interview.error && <div role="alert" className="error-banner">{interview.error}</div>}
+                    <div className="microphone-consent-actions">
+                        <button type="button" disabled={interview.microphone_requesting} onClick={interview.enable_open_microphone} className="primary-button">
+                            {interview.microphone_requesting ? t('interview.enablingMic') : t('interview.enableOpenMic')}
+                        </button>
+                        <button type="button" disabled={interview.microphone_requesting} onClick={interview.use_closed_microphone} className="secondary-button">
+                            {t('interview.usePushToTalk')}
+                        </button>
+                    </div>
+                    <small>{t('interview.microphonePrivacy')}</small>
+                </section>
+            </div>}
             <div className="interview-workspace">
                 <section className="call-stage" aria-label={t('interview.interviewer')}>
                     <img src={interviewer_image} alt={t('interview.interviewer')} className="interviewer-image" />
