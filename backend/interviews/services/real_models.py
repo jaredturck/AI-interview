@@ -40,7 +40,7 @@ class QwenMultimodalChatModel:
         ''' Prepare Qwen3.5-9B or Qwen3.6-27B in INT8 for its assigned interview or evaluation GPU role. '''
         model_kwargs = {
             'device_map': 'auto' if evaluator else device_map_for(device),
-            'dtype': torch.bfloat16,
+            'dtype': torch.float16,
             'attn_implementation': 'sdpa',
             'low_cpu_mem_usage': True,
             'quantization_config': BitsAndBytesConfig(load_in_8bit=True)
@@ -94,7 +94,7 @@ class QwenTextModel:
         ''' Keep Qwen3.5-4B in INT8 on its assigned realtime GPU for misuse classification. '''
         model_kwargs = {
             'device_map': device_map_for(device),
-            'dtype': torch.bfloat16,
+            'dtype': torch.float16,
             'low_cpu_mem_usage': True,
             'quantization_config': BitsAndBytesConfig(load_in_8bit=True)
         }
@@ -149,7 +149,7 @@ class QwenGuardModel:
         ''' Keep Qwen3Guard-Gen-4B resident in INT8 on GPU 1 for realtime safety checks. '''
         model_kwargs = {
             'device_map': device_map_for('cuda:1'),
-            'dtype': torch.bfloat16,
+            'dtype': torch.float16,
             'low_cpu_mem_usage': True,
             'quantization_config': BitsAndBytesConfig(load_in_8bit=True)
         }
