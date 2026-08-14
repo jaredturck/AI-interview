@@ -1,24 +1,47 @@
 # Performance
 
-## Live worker
+## Live placement
 
 ```text
-GPU 0: Qwen3.5-9B INT8 + Qwen3-TTS-1.7B BF16 via qwentts.cpp
-GPU 1: Qwen3-ASR-1.7B BF16 + Qwen3.5-4B INT8 + Qwen3Guard-Gen-4B INT8
+GPU 0 (24 GB)
+  Qwen3.5-9B INT8
+  Qwen3-TTS-1.7B BF16
+
+GPU 1 (24 GB)
+  Qwen3-ASR-1.7B BF16
+  Qwen3Guard-Gen-4B INT8
+  Qwen3.5-4B INT8
+  Smart Turn v3.2 FP32 (~32 MB model)
+
+CPU
+  Silero VAD
 ```
 
-A normal typed turn performs input safety, misuse classification, interviewer generation, output safety and TTS. Voice adds ASR. The interviewer is non-thinking and output-capped for latency.
+Smart Turn placement is an accuracy/latency choice, not a VRAM workaround. Silero remains CPU-side because its continuous VAD workload is tiny; Smart Turn only runs after pause probes.
 
-Django development `runserver` preloads the live stack before accepting interviews. A production worker can also load the live stack on its first interview reservation if it has not already been warmed. Once resident, the stack remains loaded until final evaluation needs both GPUs. Staff job metadata extraction reuses the same 9B model and is refused while a live interview/evaluation owns the worker.
+## Voice latency path
+
+```text
+2 s browser pause probe
+ -> ffmpeg decode
+ -> Silero VAD
+ -> Smart Turn
+ -> 0.5 s completion grace OR ~6 s incomplete-turn hold
+ -> Qwen3-ASR
+ -> safety + misuse + interviewer
+ -> Qwen3-TTS
+```
+
+The hold timer is conversational policy, not model latency. It exists only when Smart Turn considers a phrase incomplete.
 
 ## Transport
 
-The browser buffers one utterance and sends one binary WebSocket frame. TTS WAV is returned as a binary frame, avoiding base64 JSON overhead.
+The browser sends one binary frame per pause-delimited recording segment. Multiple segments can form one candidate turn. TTS returns WAV bytes as a binary frame; transcript/control data remains JSON.
 
-## Final evaluator
+## Model lifecycle
 
-Qwen3.6-27B runs INT8 across both GPUs. Evaluation intentionally trades latency for decision quality: one reasoning call per stored Job criterion, one final reasoning call and one constrained output call. Repeated transcript/job prefix reuse remains an optimization candidate only after profiling the real runtime.
+Development `runserver` preloads the live suite. A production ASGI process may lazy-load it on first reservation. Live weights remain resident across unfinished disconnects and are replaced only for final Qwen3.6 evaluation.
 
 ## Concurrency
 
-One dual-3090 host supports one live interview or one final evaluation at a time. Scaling requires additional model workers or a separately designed inference-serving architecture, not simply extra Django web processes.
+One dual-3090 model worker supports one live interview or one evaluation at a time. Scaling requires additional model workers or a separately designed inference service; increasing ASGI process count would duplicate model residency.

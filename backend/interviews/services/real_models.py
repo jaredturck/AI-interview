@@ -9,6 +9,7 @@ from transformers import AutoModelForCausalLM, AutoModelForMultimodalLM, AutoPro
 from interviews.services.choice import ChoiceLogitsProcessor
 from interviews.services.content import EVALUATOR_QUESTION_PROMPT, FINAL_CHOICE_PROMPT, FINAL_OUTPUT_PROMPT, MISUSE_PROMPT
 from interviews.services.qwen_tts_cpp import QwenTTSModel
+from interviews.services.turn_detection import TurnDetector
 
 ASR_MODEL = 'Qwen/Qwen3-ASR-1.7B-hf'
 INTERVIEWER_MODEL = 'Qwen/Qwen3.5-9B'
@@ -175,12 +176,13 @@ def load_qwen_tts():
     return QwenTTSModel()
 
 class RealModelSuite:
-    ''' Own Qwen3.5-9B, Qwen3.5-4B, Qwen3Guard, Qwen3-ASR and Qwen3-TTS realtime models plus the Qwen3.6-27B evaluator lifecycle. '''
+    ''' Own the realtime Qwen speech/interview stack, turn detector and Qwen3.6 evaluator lifecycle. '''
     def __init__(self):
         ''' Track model residency and serialize realtime and evaluator GPU transitions within the process. '''
         self.lock = threading.RLock()
         self.asr = None
         self.tts = None
+        self.turn_detector = None
         self.interviewer_model = None
         self.misuse_model = None
         self.guard_model = None
@@ -193,7 +195,7 @@ class RealModelSuite:
         torch.cuda.empty_cache()
 
     def load_live(self):
-        ''' Make the Qwen interviewer, misuse, guard, ASR and TTS stack resident for immediate interviews. '''
+        ''' Make the realtime speech, turn-detection, safety and interviewer stack resident for immediate interviews. '''
         with self.lock:
             if self.mode == 'live' and self.interviewer_model:
                 return
@@ -203,6 +205,8 @@ class RealModelSuite:
             self.tts = load_qwen_tts()
             print('Loading Qwen3-ASR realtime model...', flush=True)
             self.asr = QwenASRModel()
+            print('Loading Silero VAD and Smart Turn v3.2 realtime models...', flush=True)
+            self.turn_detector = TurnDetector()
             print('Loading Qwen3Guard realtime model...', flush=True)
             self.guard_model = QwenGuardModel()
             print('Loading Qwen3.5-4B misuse model...', flush=True)
@@ -212,8 +216,8 @@ class RealModelSuite:
             self.mode = 'live'
 
     def live_loaded(self):
-        ''' Gate interview availability on every required realtime Qwen model being resident. '''
-        return self.mode == 'live' and all([self.asr, self.tts, self.interviewer_model, self.misuse_model, self.guard_model])
+        ''' Gate interview availability on every required realtime model being resident. '''
+        return self.mode == 'live' and all([self.asr, self.tts, self.turn_detector, self.interviewer_model, self.misuse_model, self.guard_model])
 
     def unload_live(self):
         ''' Free both GPUs for Qwen3.6 final evaluation by releasing the realtime model stack. '''
@@ -224,6 +228,7 @@ class RealModelSuite:
                 self.tts.close()
 
             self.tts = None
+            self.turn_detector = None
             self.interviewer_model = None
             self.misuse_model = None
             self.guard_model = None
@@ -252,6 +257,14 @@ class RealModelSuite:
                 self.mode = 'idle'
 
             self.clear_cuda()
+
+    def has_speech(self, audio, sample_rate):
+        ''' Reject browser audio segments that do not contain meaningful human speech. '''
+        return self.turn_detector.has_speech(audio, sample_rate)
+
+    def turn_complete(self, audio, sample_rate):
+        ''' Decide whether accumulated candidate speech has reached a conversational handoff point. '''
+        return self.turn_detector.turn_complete(audio, sample_rate)
 
     def transcribe(self, audio, sample_rate):
         ''' Expose Qwen3-ASR transcription through the model-suite interface used by live WebSocket interviews. '''

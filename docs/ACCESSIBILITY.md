@@ -1,11 +1,18 @@
 # Accessibility
 
-Speech is never the only candidate input and audio is never the only interviewer output.
+Speech is never the only input and audio is never the only interviewer output.
 
-Candidates can speak, type, switch between both, and optionally review/edit ASR text before it becomes interview evidence. Every interviewer response is also present in the persistent transcript.
+Candidates can use an open microphone, push-to-talk or typed responses. The open-microphone turn detector allows natural thinking pauses instead of treating every short silence as an answer boundary. Optional ASR confirmation lets candidates correct transcription before it becomes interview evidence.
 
-The Teams-style interview view provides replay, rephrase, `I need a moment`, voice mute, speech-speed adjustment, keyboard-operable controls, visible focus, semantic labels, screen-reader status announcements and reduced-motion support. On smaller screens the transcript becomes a dismissible drawer rather than shrinking the call surface into an unusable desktop layout.
+The interview surface provides:
 
-Static candidate UI can be switched between English, French, German, Spanish, Italian, Portuguese, Dutch and Polish. The document language is updated when the selection changes. Dynamic job descriptions, transcript evidence and model-generated language are not automatically translated because doing so could alter recruitment evidence.
+- persistent text transcript for every interviewer response;
+- visible microphone state and live level meter;
+- candidate sending and interviewer typing bubbles inside the transcript panel;
+- replay, rephrase and `I need a moment` controls;
+- interviewer voice mute and playback-speed adjustment;
+- keyboard-operable controls, visible focus and screen-reader live regions;
+- reduced-motion handling;
+- a mobile transcript drawer.
 
-The realtime interviewer prompt asks the model to adapt question specificity to the candidate while remaining grounded in the role rather than assuming one communication style or occupation.
+Static UI supports English, French, German, Spanish, Italian, Portuguese, Dutch and Polish. Job descriptions, candidate evidence and model output are not automatically translated because translation could alter recruitment evidence.

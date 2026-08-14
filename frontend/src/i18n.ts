@@ -44,7 +44,7 @@ const resources = {
         'interview.replay': 'Replay question', 'interview.rephrase': 'Rephrase', 'interview.moment': 'I need a moment', 'interview.muteVoice': 'Mute voice',
         'interview.enableVoice': 'Enable voice', 'interview.voiceSpeed': 'Voice speed', 'interview.end': 'End interview', 'interview.account': 'Account',
         'interview.microphoneSetup': 'Microphone setup', 'interview.microphoneTitle': 'Enable your microphone for a natural interview',
-        'interview.microphoneDescription': 'Open microphone is the default. Your microphone stays active during the interview, detects when you speak, and sends each answer after about two seconds of silence.',
+        'interview.microphoneDescription': 'Open microphone is the default. Your microphone stays active during the interview while speech detection decides when you have finished a response.',
         'interview.microphonePrivacy': 'Microphone audio is sent only for speech transcription and is not stored. You can close the microphone at any time and use push-to-talk instead.',
         'interview.enableOpenMic': 'Enable open microphone', 'interview.enablingMic': 'Enabling microphone…', 'interview.usePushToTalk': 'Use push-to-talk',
         'interview.openMic': 'Open mic', 'interview.closeMic': 'Close mic', 'interview.micListening': 'Microphone open — listening',
@@ -75,7 +75,7 @@ const resources = {
         'errors.worker_busy': 'The interview worker is currently busy. Please try again shortly.', 'errors.invalid_message': 'The interview received an invalid message.',
         'errors.confirm_transcript_first': 'Please confirm or replace the current transcript before recording again.', 'errors.recording_too_large': 'That recording is too large. Please send a shorter answer or type your response.',
         'errors.recording_unreadable': 'The recording could not be read. Please try again or type your response.', 'errors.transcription_unavailable': 'Speech transcription is temporarily unavailable. You can continue by typing.',
-        'errors.transcription_empty': 'There was not enough speech to transcribe that answer.', 'errors.turn_failed': 'The interviewer could not process that turn. Please continue or try again.',
+        'errors.transcription_empty': 'There was not enough speech to transcribe that answer.', 'errors.turn_detection_unavailable': 'Speech turn detection is temporarily unavailable. You can continue by typing.', 'errors.turn_failed': 'The interviewer could not process that turn. Please continue or try again.',
         'errors.rephrase_failed': 'The interviewer could not rephrase that question right now.'
     }},
     fr: {translation: {

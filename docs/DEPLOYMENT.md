@@ -1,19 +1,29 @@
 # Deployment
 
-`npm run dev` starts Django's development server and Vite. It is not a production deployment command.
+`npm run dev` starts Django development `runserver` and Vite. It is not a production command.
 
-For production:
+## Runtime requirements
 
-1. configure a strong `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=false`, production allowed hosts and trusted CSRF origins;
-2. run `npm install` and `npm run build`;
-3. run `python backend/manage.py migrate`;
-4. serve Django with a production ASGI server behind TLS;
-5. serve `frontend/dist/` from the web server/CDN with SPA fallback to `index.html` for candidate routes;
-6. proxy `/api` and `/admin` to Django and `/ws` to Django/ASGI with WebSocket upgrade support;
-7. keep ffmpeg, CUDA, PyTorch and required Qwen weights available on the GPU host.
+- Python 3.12+, Node/npm and ffmpeg.
+- CUDA-capable PyTorch for two RTX 3090 GPUs.
+- `onnxruntime-gpu` with a working CUDA execution provider.
+- qwentts.cpp built with CUDA for compute capability 8.6.
+- Hugging Face access/cache for Qwen checkpoints and `pipecat-ai/smart-turn-v3`.
 
-The inference runtime is intentionally single-worker. Do not scale the Django/ASGI process count on one GPU host as though model state were stateless; each independent process would create its own model runtime.
+Smart Turn downloads `smart-turn-v3.2-gpu.onnx` through `hf_hub_download()` on first live-model load. Production hosts should prewarm the Hugging Face cache rather than depend on a first-request download.
 
-The React language selector writes Django's `django_language` cookie so custom API/admin-compatible translation selection can use the same preference. Django admin also has its own language selector.
+```bash
+hf download pipecat-ai/smart-turn-v3 smart-turn-v3.2-gpu.onnx
+```
 
-Rate-limit login/signup and other abuse-prone public endpoints at the reverse proxy or another agreed production boundary.
+## Production shape
+
+1. Configure strong Django secrets, production hosts/origins and TLS.
+2. Install Python/Node dependencies and build `frontend/dist/`.
+3. Run migrations.
+4. Serve Django with one model-owning ASGI process per dual-GPU worker.
+5. Serve the SPA separately with fallback to `index.html`.
+6. Proxy `/api`, `/admin` and WebSocket `/ws` correctly.
+7. Warm the live model stack before accepting interviews when predictable first-turn latency matters.
+
+Do not scale ASGI workers on one GPU host as if inference state were stateless; each process would allocate another model suite.

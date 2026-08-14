@@ -3,6 +3,7 @@
 import asyncio, json, logging
 from datetime import timedelta
 
+import numpy as np
 from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.utils import timezone
@@ -16,6 +17,8 @@ from interviews.services.runtime import model_runtime
 
 LOGGER = logging.getLogger(__name__)
 MAX_AUDIO_BYTES = 20000000
+TURN_COMPLETE_GRACE_SECONDS = 0.5
+TURN_HOLD_SECONDS = 6
 CLOSING_FALLBACK = 'Thank you for your time today. The interview is now complete.'
 
 class InterviewConsumer(AsyncWebsocketConsumer):
@@ -28,6 +31,11 @@ class InterviewConsumer(AsyncWebsocketConsumer):
         self.finished = False
         self.evaluation_started = False
         self.timeout_task = None
+        self.turn_finalize_task = None
+        self.turn_lock = asyncio.Lock()
+        self.pending_turn_audio = []
+        self.force_next_audio = False
+        self.speech_resumed_since_probe = False
         user = self.scope['user']
 
         if not user.is_authenticated:
@@ -99,16 +107,20 @@ class InterviewConsumer(AsyncWebsocketConsumer):
         if self.timeout_task:
             self.timeout_task.cancel()
 
+        self.cancel_turn_finalize()
+
         if self.interview and not self.evaluation_started:
             model_runtime.release_interview(self.interview.id)
 
     async def receive(self, text_data=None, bytes_data=None):
-        ''' Route browser audio, typed answers, transcript confirmations and interview controls to their handlers. '''
+        ''' Route browser audio, typed answers, speech-resume signals, transcript confirmations and controls to their handlers. '''
         if self.finished:
             return
 
         if bytes_data is not None:
-            await self.handle_audio(bytes_data)
+            force_turn = self.force_next_audio
+            self.force_next_audio = False
+            await self.handle_audio(bytes_data, force_turn=force_turn)
             return
 
         if not text_data:
@@ -125,14 +137,19 @@ class InterviewConsumer(AsyncWebsocketConsumer):
 
         if message_type == 'text':
             self.pending_transcript = ''
+            self.reset_pending_turn()
             await self.handle_candidate_text(message.get('text', ''))
+        elif message_type == 'audio_mode':
+            self.force_next_audio = bool(message.get('manual'))
+        elif message_type == 'speech_resumed':
+            await self.handle_speech_resumed()
         elif message_type == 'confirm_transcript':
             await self.handle_confirmed_transcript(message.get('text', ''))
         elif message_type == 'control':
             await self.handle_control(message.get('action', ''))
 
-    async def handle_audio(self, audio_bytes):
-        ''' Turn one browser recording into candidate text, optionally pausing for transcript confirmation. '''
+    async def handle_audio(self, audio_bytes, force_turn=False):
+        ''' Add one browser speech segment to the pending candidate turn and probe whether the turn is complete. '''
         if self.pending_transcript:
             await self.send_json({'type': 'error', 'code': 'confirm_transcript_first',
                 'message': 'Please confirm or replace the current transcript before recording again.'})
@@ -143,26 +160,120 @@ class InterviewConsumer(AsyncWebsocketConsumer):
                 'message': 'That recording is too large. Please send a shorter answer or type your response.'})
             return
 
-        await self.send_json({'type': 'status', 'status': 'transcribing'})
-        audio, sample_rate = await sync_to_async(decode_browser_audio, thread_sensitive=False)(audio_bytes)
+        async with self.turn_lock:
+            self.cancel_turn_finalize()
+            self.speech_resumed_since_probe = False
+            audio, sample_rate = await sync_to_async(decode_browser_audio, thread_sensitive=False)(audio_bytes)
 
-        if audio.size == 0:
-            await self.send_json({'type': 'error', 'code': 'recording_unreadable',
-                'message': 'I could not read that recording. Please try again or type your response.'})
+            if audio.size == 0:
+                await self.send_json({'type': 'error', 'code': 'recording_unreadable',
+                    'message': 'I could not read that recording. Please try again or type your response.'})
+                return
+
+            try:
+                has_speech = await sync_to_async(model_runtime.suite.has_speech, thread_sensitive=False)(audio, sample_rate)
+
+            except Exception as error:  # noqa: BLE001
+                LOGGER.exception('Speech activity detection failed: %s', error)
+                self.reset_pending_turn()
+                await self.send_json({'type': 'error', 'code': 'turn_detection_unavailable',
+                    'message': 'Speech detection is temporarily unavailable. You can continue by typing.'})
+                await self.send_json({'type': 'ready'})
+                return
+
+            if not has_speech:
+                pending_turn = bool(self.pending_turn_audio)
+
+                if pending_turn:
+                    self.schedule_turn_finalize(TURN_HOLD_SECONDS)
+
+                await self.send_json({'type': 'audio_ignored', 'pending_turn': pending_turn})
+                await self.send_json({'type': 'status', 'status': 'listening' if pending_turn else 'ready'})
+                return
+
+            self.pending_turn_audio.append(audio)
+
+            if force_turn:
+                await self.finalize_pending_turn(sample_rate)
+                return
+
+            turn_audio = np.concatenate(self.pending_turn_audio)
+
+            try:
+                complete = await sync_to_async(model_runtime.suite.turn_complete, thread_sensitive=False)(turn_audio, sample_rate)
+
+            except Exception as error:  # noqa: BLE001
+                LOGGER.exception('Turn completion detection failed: %s', error)
+                self.reset_pending_turn()
+                await self.send_json({'type': 'error', 'code': 'turn_detection_unavailable',
+                    'message': 'Speech turn detection is temporarily unavailable. You can continue by typing.'})
+                await self.send_json({'type': 'ready'})
+                return
+
+            self.schedule_turn_finalize(TURN_COMPLETE_GRACE_SECONDS if complete else TURN_HOLD_SECONDS)
+            await self.send_json({'type': 'turn_pending'})
+            await self.send_json({'type': 'status', 'status': 'listening'})
+
+    async def handle_speech_resumed(self):
+        ''' Cancel a pending interviewer handoff as soon as the open microphone detects resumed candidate speech. '''
+        self.speech_resumed_since_probe = True
+        self.cancel_turn_finalize()
+
+        if self.pending_turn_audio:
+            await self.send_json({'type': 'status', 'status': 'listening'})
+
+    def schedule_turn_finalize(self, delay):
+        ''' Schedule candidate-turn acceptance after either Smart Turn completion grace or the maximum hold period. '''
+        self.cancel_turn_finalize()
+        self.speech_resumed_since_probe = False
+        self.turn_finalize_task = asyncio.create_task(self.finalize_turn_after(delay))
+
+    async def finalize_turn_after(self, delay):
+        ''' Finalize the accumulated candidate turn after the selected silence window unless speech resumes first. '''
+        try:
+            await asyncio.sleep(delay)
+
+        except asyncio.CancelledError:
             return
 
+        self.turn_finalize_task = None
+
+        if self.finished or self.pending_transcript or self.speech_resumed_since_probe:
+            return
+
+        async with self.turn_lock:
+            if not self.finished and self.pending_turn_audio and not self.speech_resumed_since_probe:
+                await self.finalize_pending_turn(16000)
+
+    async def finalize_pending_turn(self, sample_rate):
+        ''' Transcribe one accepted accumulated turn and pass confirmed text into the existing interview policy pipeline. '''
+        if not self.pending_turn_audio:
+            return
+
+        turn_audio = np.concatenate(self.pending_turn_audio)
+        await self.send_json({'type': 'status', 'status': 'transcribing'})
+
         try:
-            transcript = await sync_to_async(model_runtime.suite.transcribe, thread_sensitive=False)(audio, sample_rate)
+            transcript = await sync_to_async(model_runtime.suite.transcribe, thread_sensitive=False)(turn_audio, sample_rate)
 
         except Exception as error:  # noqa: BLE001
             LOGGER.exception('Speech transcription failed: %s', error)
+            self.reset_pending_turn()
             await self.send_json({'type': 'error', 'code': 'transcription_unavailable',
                 'message': 'Speech transcription is temporarily unavailable. You can continue by typing.'})
             await self.send_json({'type': 'ready'})
             return
 
+        if self.speech_resumed_since_probe:
+            await self.send_json({'type': 'turn_pending'})
+            await self.send_json({'type': 'status', 'status': 'listening'})
+            return
+
+        self.pending_turn_audio = []
+
         if not transcript:
             await self.send_json({'type': 'error', 'code': 'transcription_empty', 'message': 'I could not hear enough speech to transcribe that answer.'})
+            await self.send_json({'type': 'ready'})
             return
 
         if self.interview.confirm_transcript:
@@ -172,6 +283,20 @@ class InterviewConsumer(AsyncWebsocketConsumer):
             return
 
         await self.handle_candidate_text(transcript)
+
+    def cancel_turn_finalize(self):
+        ''' Cancel a scheduled candidate-turn handoff without interrupting model work that has already begun. '''
+        task = self.turn_finalize_task
+        self.turn_finalize_task = None
+
+        if task and task is not asyncio.current_task():
+            task.cancel()
+
+    def reset_pending_turn(self):
+        ''' Discard uncommitted microphone audio when another explicit candidate input path takes ownership. '''
+        self.cancel_turn_finalize()
+        self.pending_turn_audio = []
+        self.speech_resumed_since_probe = False
 
     async def handle_confirmed_transcript(self, text):
         ''' Replace ASR output with the candidate-approved transcript before interview processing continues. '''
@@ -275,6 +400,8 @@ class InterviewConsumer(AsyncWebsocketConsumer):
 
     async def complete_live_session(self):
         ''' Close the live WebSocket cleanly and hand the completed interview to background evaluation. '''
+        self.reset_pending_turn()
+
         if self.timeout_task and self.timeout_task is not asyncio.current_task():
             self.timeout_task.cancel()
 

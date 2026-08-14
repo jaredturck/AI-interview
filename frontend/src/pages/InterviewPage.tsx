@@ -99,7 +99,7 @@ export default function InterviewPage() {
                         <div><p className="eyebrow">{t('application.interview')}</p><h2>{t('interview.transcript')}</h2></div>
                         <button type="button" className="transcript-close" onClick={() => set_transcript_open(false)} aria-label={t('interview.closeTranscript')}>×</button>
                     </div>
-                    <Transcript messages={interview.messages} />
+                    <Transcript messages={interview.messages} candidate_pending={interview.candidate_pending} assistant_pending={interview.assistant_pending} />
                 </aside>
             </div>
         </main>

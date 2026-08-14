@@ -11,3 +11,6 @@ transformers>=5.13
 accelerate
 bitsandbytes
 soundfile
+huggingface-hub
+onnxruntime-gpu
+silero-vad==6.2.1

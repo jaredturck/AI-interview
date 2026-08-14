@@ -22,6 +22,14 @@ class FakeModelSuite:
         ''' Mirror evaluator cleanup without holding GPU model state during tests. '''
         return None
 
+    def has_speech(self, audio, sample_rate):
+        ''' Treat non-empty test audio as speech unless a test overrides the fake detector. '''
+        return bool(audio.size)
+
+    def turn_complete(self, audio, sample_rate):
+        ''' Treat test speech as a completed turn unless a test overrides the fake detector. '''
+        return True
+
     def transcribe(self, audio, sample_rate):
         ''' Provide predictable ASR text for tests that exercise spoken interview turns. '''
         return 'I managed commercial cleaning schedules and quality checks.'

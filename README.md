@@ -1,74 +1,55 @@
 # Adaptive AI Interviewer
 
-A first-stage technical interview application built with React, Tailwind CSS, Django, Channels and a fixed local Qwen model stack.
+A local first-stage interview application built with React, TypeScript, Django, Channels and a fixed dual-GPU AI stack.
 
-The project is intentionally purpose-built rather than configurable as a generic model platform. The live interviewer gathers technical evidence, the safety subsystem protects the conversation, and the final evaluator makes the binary stage-one progression decision.
+## Runtime flow
 
-## Core flow
-
-```text
-Candidate browser
-    |
-    | voice or typed text
-    v
-React + Tailwind
-    |
-    | HTTP + authenticated WebSocket
-    v
-Django + Channels
-    |
-    +-- Qwen3-ASR-1.7B-hf        speech -> text
-    +-- Qwen3.5-9B               adaptive interviewer
-    +-- Qwen3-TTS-1.7B           text -> speech
-    +-- Qwen3Guard-Gen-4B        immediate content safety
-    +-- Qwen3.5-4B               accumulated misuse monitoring
-    |
-    v
-Stored text transcript
-    |
-    | live models unload after the interview
-    v
-Qwen3.6-27B INT8
-    |
-    +-- one deep reasoning pass per evaluation criterion
-    +-- one final reasoning pass across the whole assessment
-    +-- constrained PROGRESS / NOT_PROGRESS output
+```mermaid
+flowchart LR
+    Browser[React browser client] -->|voice / text| Channels[Django Channels]
+    Channels --> Voice[Silero + Smart Turn + Qwen3-ASR]
+    Voice --> Policy[Safety + misuse + Qwen3.5 interviewer]
+    Policy --> TTS[Qwen3-TTS]
+    Channels --> DB[(Confirmed transcript + interview state)]
+    DB --> Eval[Qwen3.6 final evaluator]
 ```
 
-The job description and evaluation questions are ordinary files under `config/`. Prompts live under `prompts/`. RAG/company knowledge is deliberately not implemented in this version; it is listed in `TODO.md` for a separate design pass.
+Voice turn-taking is context-aware rather than `silence == finished`: Silero rejects non-speech, Smart Turn decides whether a pause looks like a conversational handoff, and Qwen3-ASR runs only after the turn is accepted. See `docs/VOICE_PIPELINE.md`.
 
 ## Project structure
 
 ```text
-backend/                    Django application
-config/                     Job description and evaluator criteria
-docs/                       Architecture, security, performance and testing notes
-frontend/                   React application source
-prompts/                    AI prompts
-package.json                Root Node development/build/test interface
-requirements.txt            Python dependencies
-vite.config.js              Vite/Tailwind configuration
+backend/        Django, Channels, persistence and model orchestration
+config/         Job description and evaluation criteria used for new jobs
+docs/           Architecture, models, voice, deployment, security and style
+frontend/       React/TypeScript candidate application
+prompts/        Interviewer, misuse and evaluation prompts
 ```
 
-The SQLite database stores runtime application data: accounts, interview sessions, transcript turns, criterion assessments, outcomes and candidate-requested human reviews.
+Primary engineering docs:
+
+- `docs/ARCHITECTURE.md`
+- `docs/VOICE_PIPELINE.md`
+- `docs/MODELS.md`
+- `docs/PERFORMANCE.md`
+- `docs/STYLE_GUIDE.md`
 
 ## Requirements
 
 - Python 3.12+
-- Node.js and npm
+- Node.js + npm
 - ffmpeg, git and cmake
-- NVIDIA CUDA toolkit (`nvcc`) and PyTorch support
-- two RTX 3090 GPUs for the intended real-model deployment
+- NVIDIA CUDA toolkit and CUDA-capable PyTorch
+- two RTX 3090 GPUs for the intended deployment
+- ONNX Runtime GPU support for Smart Turn
 
-On Arch Linux:
+Arch Linux system tools:
 
 ```bash
 sudo pacman -S ffmpeg cmake git
 ```
 
 ## Python setup
-
-From the repository root:
 
 ```bash
 python -m venv .venv
@@ -77,9 +58,11 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Qwen3-TTS runs through the native `qwentts.cpp` shared library so the Python environment can remain on Transformers 5. The application uses the source-faithful BF16 GGUF conversion of `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice` and the `vivian` English female speaker.
+Smart Turn v3.2 is downloaded from `pipecat-ai/smart-turn-v3` through the Hugging Face cache on first live-model load. Silero VAD is supplied by `silero-vad`.
 
-Build the pinned qwentts.cpp ABI used by the Python binding:
+## Qwen3-TTS native runtime
+
+Qwen3-TTS uses qwentts.cpp so the main Python environment can remain on Transformers 5.
 
 ```bash
 mkdir -p ~/.cache/adaptive-ai-interviewer
@@ -91,7 +74,7 @@ cmake -S . -B build -DGGML_CUDA=ON -DQWEN_SHARED=ON -DCMAKE_CUDA_ARCHITECTURES=8
 cmake --build build -j "$(nproc)"
 ```
 
-Download the matching BF16 talker and codec:
+Download the matching BF16 files:
 
 ```bash
 mkdir -p ~/.cache/adaptive-ai-interviewer/qwen3-tts
@@ -101,70 +84,54 @@ hf download Serveurperso/Qwen3-TTS-GGUF \
     --local-dir ~/.cache/adaptive-ai-interviewer/qwen3-tts
 ```
 
-The Django process loads `libqwen.so` directly with `ctypes`; there is no second Python environment or local TTS server. If CUDA rejects Arch's current host compiler, configure CMake with a CUDA-supported GCC using `-DCMAKE_CUDA_HOST_COMPILER=/path/to/g++`.
-
-## Frontend setup
+## Frontend and database
 
 ```bash
 npm install
-```
-
-There is one root `package.json`; the frontend does not have a separate package file.
-
-## Database setup
-
-Run Django migrations normally:
-
-```bash
 python backend/manage.py migrate
 ```
 
-To create an admin account:
+Optional admin account:
 
 ```bash
 python backend/manage.py createsuperuser
 ```
 
-The Django admin is available at `/admin/` through the backend server.
-
-## Run the application
+## Development
 
 ```bash
 npm run dev
 ```
 
-This starts Django and Vite together:
-
 - Django: `http://127.0.0.1:8000`
-- React/Vite: `http://127.0.0.1:5173`
+- Vite: `http://127.0.0.1:5173`
 
-Open:
+Vite proxies `/api` and `/ws` to Django. Development `runserver` preloads the live model suite in its serving child process.
 
-```text
-http://127.0.0.1:5173
-```
-
-Vite proxies `/api` and `/ws` to Django. Candidates create an account, sign in, and conduct the complete interview through the browser.
-
-## Build
+## Build and tests
 
 ```bash
 npm run build
-```
-
-The production frontend bundle is written to `frontend/dist/`.
-
-## Tests
-
-```bash
 npm test
 ```
 
-This runs Django checks, the Python test suite and a production Vite build. Tests inject deterministic fake model objects directly; production code has no mock-model mode.
+`npm test` runs Django checks, migration drift checks, pytest and the production frontend build. Tests inject deterministic fake model services; they do not allocate real CUDA models.
 
-## Editable interview content
+## Model placement
 
-Change the role and final evaluation rubric without changing Python code:
+```text
+GPU 0: Qwen3.5-9B interviewer + Qwen3-TTS
+GPU 1: Qwen3-ASR + Qwen3Guard + Qwen3.5-4B misuse + Smart Turn v3.2
+CPU:   Silero VAD
+
+Final evaluation: Qwen3.6-27B across GPU 0 + GPU 1
+```
+
+See `docs/MODELS.md` for exact checkpoints and precision.
+
+## Interview content
+
+New jobs snapshot the current files:
 
 ```text
 config/job_description.md
@@ -181,42 +148,24 @@ prompts/final_choice.txt
 prompts/final_output.txt
 ```
 
-## Candidate accounts
+Changing these files does not mutate already-created `Job` snapshots.
 
-Candidates must create an account before starting an interview. Django's normal authentication/session system is used for HTTP and WebSocket ownership. Each interview belongs to its authenticated account and appears on the candidate account page.
+## Voice behaviour
 
-After an automated outcome, the candidate can request human review through the application. Django admin provides internal access to interview sessions, transcripts, criterion evaluations and review requests.
+Open microphone is the default after explicit browser permission. The `MediaStream` stays active for the interview; pause-delimited recording segments are sent automatically. Push-to-talk remains available as an explicit closed-microphone mode.
 
-## Accessibility
+The transcript panel uses temporary candidate/interviewer `...` bubbles while audio or AI work is pending. Temporary UI state is never persisted as interview evidence.
 
-Candidates can answer by voice, typing, or switch between the two. Interviewer responses are presented as both text and speech.
-
-The interface also provides:
-
-- visible transcript/captions;
-- optional ASR transcript confirmation and correction;
-- replay and rephrase controls;
-- an `I need a moment` control;
-- interviewer voice mute;
-- adjustable speech playback speed;
-- keyboard-operable controls;
-- screen-reader status announcements;
-- reduced-motion support.
-
-See `docs/ACCESSIBILITY.md`.
+Raw microphone audio is processed in memory and is not stored by the application.
 
 ## Model lifecycle
 
-The live stack is lazy-loaded on the first interview and stays resident while the system is interviewing. A normal disconnected-but-unfinished interview releases the worker but leaves the live weights resident for fast reuse.
+`ModelRuntime` owns one process-wide model worker. A normal unfinished disconnect releases the interview reservation while keeping live weights resident. Completing an interview transfers the worker to Qwen3.6 evaluation; the live stack is restored afterwards.
 
-Once an interview finishes, the evaluator atomically takes ownership of the dual-GPU worker, unloads the live models and loads Qwen3.6-27B in INT8 across both GPUs. After evaluation, the evaluator unloads and the worker returns to idle.
+One dual-3090 worker supports one live interview or one final evaluation at a time.
 
-One dual-3090 host supports one live interview or one final evaluation at a time in this V1 architecture.
+## Accessibility and privacy
 
-See `docs/MODELS.md`, `docs/ARCHITECTURE.md` and `docs/PERFORMANCE.md`.
+Candidates can speak, type or switch between both. The UI provides transcript text, microphone state/level, replay, rephrase, pause, voice mute, playback speed, keyboard operation, reduced-motion support and optional ASR confirmation.
 
-## Production notes
-
-The checked-in Django settings are development defaults. Production deployment requires a strong `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=false`, production hosts/origins, TLS, a production ASGI server, rate limiting at the deployment boundary, and an explicit privacy/retention policy for candidate data.
-
-See `docs/DEPLOYMENT.md` and `docs/SECURITY.md`.
+See `docs/ACCESSIBILITY.md`, `docs/SECURITY.md` and `docs/DEPLOYMENT.md` before production deployment.

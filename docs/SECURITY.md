@@ -1,29 +1,32 @@
 # Security
 
-## Authentication, CSRF and ownership
+## Trust boundaries
 
-Candidates use Django password hashing and server-side sessions. `JobApplication.user` is the ownership boundary for application and interview resources.
+| Boundary | Control |
+| --- | --- |
+| Candidate HTTP | Django session authentication, CSRF and object ownership. |
+| Interview WebSocket | `AuthMiddlewareStack`, origin validation and interview ownership before model work. |
+| Candidate/model text | React/Django escaping; no `dangerouslySetInnerHTML` for untrusted content. |
+| Recruitment decision | Safety/misuse models cannot emit `PROGRESS` / `NOT_PROGRESS`; only final evaluation can. |
 
-All candidate job/application/interview endpoints requiring account data verify authentication and ownership. State-changing HTTP calls remain protected by Django CSRF middleware; the React API client sends the CSRF cookie value as `X-CSRFToken`. Channels uses `AuthMiddlewareStack`, and every interview WebSocket verifies ownership before accepting model work.
+## Voice data
 
-`AllowedHostsOriginValidator` restricts authenticated WebSocket origins. Production must also configure allowed hosts and trusted CSRF origins correctly.
+Raw microphone audio is untrusted input. It is size-limited, decoded by ffmpeg with a timeout, held only in process memory and not persisted by the application.
 
-## Rendering and injection safety
+Silero rejects segments without meaningful speech before Qwen3-ASR. Smart Turn controls conversational handoff only; a manual push-to-talk submit can bypass Smart Turn but **not** VAD, ASR, safety, misuse or interview policy.
 
-Candidate APIs return JSON only. React renders job metadata, descriptions, transcript text and model output as normal escaped text; the application does not use `dangerouslySetInnerHTML` for candidate/model content. Django admin templates retain Django autoescaping. ORM queries use Django query APIs rather than interpolated SQL.
+## Resource limits
 
-The custom staff job-creation form is protected by Django admin authentication and CSRF. AI-derived job metadata is stored as plain text and never treated as HTML.
-
-## AI and resource safety
-
-Candidate text is checked by Qwen3Guard before interviewer generation, and generated interviewer text is checked again before TTS. A separate misuse model can redirect or terminate the conversation but cannot decide the hiring outcome.
-
-Resource limits include capped candidate text, 20 MB WebSocket audio, bounded ffmpeg decoding, a 60-second decoder timeout, a 30-minute interview limit and exclusive GPU-worker ownership.
+- Candidate text is length-capped.
+- Each WebSocket audio frame is capped at 20 MB.
+- ffmpeg decoding is bounded to 600 seconds and a 60-second process timeout.
+- Interviews are capped at 30 minutes.
+- `ModelRuntime` grants exclusive ownership of the live/evaluator GPU worker.
 
 ## Failure behaviour
 
-Evaluation failures never create a positive/negative candidate result. They become `evaluation_failed`, after which human review can be requested. A stale in-process evaluation after backend restart is converted to explicit failure instead of leaving the application indefinitely pending.
+Operational model failures produce explicit errors. Evaluation failure becomes `evaluation_failed`; no hiring outcome is invented. Raw model chain-of-thought is neither returned nor stored.
 
 ## Production requirements
 
-Before public deployment use TLS, strong secrets, production host/origin settings, endpoint rate limiting, dependency/OS patching, monitoring and an explicit candidate data retention/privacy policy. Automated-decision and recruitment notices should be reviewed with appropriate legal/data-protection specialists for the deployment jurisdiction.
+Use TLS, strong secrets, production host/origin settings, endpoint rate limiting, dependency/OS patching, monitoring and an explicit candidate retention/privacy policy. Recruitment and automated-decision notices require jurisdiction-specific legal review.

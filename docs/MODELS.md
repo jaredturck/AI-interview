@@ -1,24 +1,37 @@
 # Models
 
-The model stack is fixed in `backend/interviews/services/real_models.py`; model IDs, placement and precision are implementation choices rather than candidate/runtime settings.
+The model stack is fixed in `backend/interviews/services/real_models.py` and `turn_detection.py`. Device/precision changes are code changes, not runtime candidate settings.
 
-| Purpose | Model | GPU | Precision |
+| Purpose | Model/source | Device | Runtime precision |
 | --- | --- | --- | --- |
-| Speech recognition | `Qwen/Qwen3-ASR-1.7B-hf` | cuda:1 | BF16 |
-| Interviewer + job metadata | `Qwen/Qwen3.5-9B` | cuda:0 | INT8 |
-| Text-to-speech | `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice` via qwentts.cpp | cuda:0 | BF16 |
-| Content safety | `Qwen/Qwen3Guard-Gen-4B` | cuda:1 | INT8 |
-| Misuse monitoring | `Qwen/Qwen3.5-4B` | cuda:1 | INT8 |
-| Final evaluator | `Qwen/Qwen3.6-27B` | cuda:0 + cuda:1 | INT8 |
+| Interviewer + job metadata | `Qwen/Qwen3.5-9B` | GPU 0 | INT8 weights, FP16 activations |
+| Text-to-speech | `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice` via qwentts.cpp | GPU 0 | BF16 GGUF |
+| Speech recognition | `Qwen/Qwen3-ASR-1.7B-hf` | GPU 1 | BF16 |
+| Turn completion | `pipecat-ai/smart-turn-v3` / `smart-turn-v3.2-gpu.onnx` | GPU 1 | FP32 ONNX |
+| Voice activity detection | Silero VAD 6.2.1 | CPU | FP32 JIT |
+| Content safety | `Qwen/Qwen3Guard-Gen-4B` | GPU 1 | INT8 weights, FP16 activations |
+| Misuse monitoring | `Qwen/Qwen3.5-4B` | GPU 1 | INT8 weights, FP16 activations |
+| Final evaluator | `Qwen/Qwen3.6-27B` | GPU 0 + GPU 1 | INT8 weights, FP16 activations |
 
-The interviewer and misuse monitor run without extended thinking. Qwen3.6 uses thinking for each criterion assessment and the final synthesis. Staff job creation reuses the resident 9B interviewer model for one short JSON metadata extraction; it does not rewrite the authored Job description.
+Smart Turn is GPU-resident for its unquantized model/accuracy path. Silero stays on CPU because its tiny VAD workload is already sub-millisecond-class and avoids unnecessary GPU scheduling for continuous speech filtering.
 
-## Loading lifecycle
+## Live load order
 
-Heavy model imports are delayed behind `ModelRuntime`. Django development `runserver` preloads the live stack in its serving child process, while another ASGI serving process can load it on the first interview reservation. The live stack remains resident across ordinary unfinished disconnects. Evaluation unloads it, gives both GPUs to Qwen3.6-27B, then eagerly restores the live stack when evaluation finishes.
+```text
+GPU 0: Qwen3-TTS -> Qwen3.5-9B interviewer
+GPU 1: Qwen3-ASR -> Smart Turn -> Qwen3Guard -> Qwen3.5-4B misuse
+CPU:   Silero VAD (owned by TurnDetector)
+```
 
-Normal migrations/tests do not intentionally allocate the real Qwen suite; tests replace the runtime suite with deterministic fakes.
+`RealModelSuite.load_live()` owns all live model instances. Do not create additional model copies in consumers, views or helper modules.
 
-## Speech runtime compatibility
+## Evaluation handoff
 
-Qwen3-ASR remains on the native Hugging Face Transformers 5 path. Qwen3-TTS is loaded separately inside the same Django process through the qwentts.cpp shared C ABI, so it does not import the incompatible `qwen-tts` Python runtime or a second Transformers installation. The BF16 CustomVoice talker and tokenizer GGUFs are kept resident on CUDA 0 during live interviews.
+`load_evaluator()` releases the live stack before loading Qwen3.6-27B across both GPUs. `finish_evaluation()` restores the live stack. ONNX Smart Turn is released with the rest of the live suite.
+
+## Speech model contracts
+
+- Browser audio is normalized to mono 16 kHz float32 PCM before VAD, Smart Turn or ASR.
+- Smart Turn evaluates up to the last 8 seconds of the **current** candidate turn.
+- Qwen3-ASR receives the full accepted accumulated turn.
+- Qwen3-TTS runs through the pinned qwentts.cpp C ABI so the main Python environment can stay on Transformers 5.

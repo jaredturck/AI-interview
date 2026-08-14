@@ -82,6 +82,8 @@ export type WebSocketMessage =
     | {type: 'ready'}
     | {type: 'status'; status: LiveStatus}
     | {type: 'candidate'; text: string}
+    | {type: 'turn_pending'}
+    | {type: 'audio_ignored'; pending_turn: boolean}
     | {type: 'assistant'; text: string}
     | {type: 'transcription'; text: string; requires_confirmation: boolean}
     | {type: 'ended'; status?: InterviewStatus; result?: InterviewResult}

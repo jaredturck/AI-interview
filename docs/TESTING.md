@@ -6,15 +6,31 @@ Run from the repository root:
 npm test
 ```
 
-It runs:
+This executes Django checks, migration drift checks, pytest and a production TypeScript/Vite build. Backend tests inject `FakeModelSuite`; production has no mock-model mode.
 
-1. `python backend/manage.py check`
-2. `python backend/manage.py makemigrations --check --dry-run`
-3. `python -m pytest backend`
-4. `tsc -b && vite build`
+## Required coverage
 
-The backend suite injects a deterministic fake model suite. Production code has no mock-model mode.
+| Area | Cases |
+| --- | --- |
+| Ownership | HTTP/WebSocket authentication, cross-account rejection. |
+| Interview policy | Opening, normal follow-up, safety redirect, misuse termination, manual end. |
+| Voice turn-taking | Non-speech discard, incomplete pause hold, resumed speech, accumulated-turn completion, push-to-talk explicit submit. |
+| Transcript UI | Candidate sending indicator, interviewer typing indicator, replacement by real messages. |
+| Evaluation | Criterion persistence, binary result, failure state, human review. |
+| Data | Immutable job snapshot, candidate data deletion/download paths. |
 
-Coverage includes authentication, open-job listing, job application, duplicate prevention, candidate ownership, account/application payloads, immutable Job snapshots, staff job creation, generic opening-message behaviour, live interview safety/misuse handling, criterion persistence, evaluation outcome, human review and authenticated Channels WebSockets.
+## Target-host checks
 
-Real-model CUDA placement, VRAM usage, model load times, ASR/TTS compatibility and latency must still be validated on the target dual-RTX-3090 host.
+Automated tests do not validate real CUDA execution. On the dual-RTX-3090 host verify:
+
+```text
+Smart Turn session provider -> CUDAExecutionProvider device 1
+Silero -> CPU
+Qwen model device placement -> docs/MODELS.md
+Open microphone -> Chrome microphone indicator remains active
+Cough/background noise -> no candidate message
+Mid-sentence pause -> interviewer waits
+Push-to-talk -> button release submits immediately
+```
+
+Turn thresholds and timing constants should be tuned from recorded usability tests rather than changed from anecdotal single samples.
