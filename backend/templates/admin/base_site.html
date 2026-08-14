@@ -3,19 +3,38 @@
 
 {% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title }}{% endblock %}
 
-{% block extrastyle %}
+{% block responsive %}
 {{ block.super }}
-<link rel="stylesheet" href="{% static 'admin/css/recruitment_admin.css' %}">
+<link rel="stylesheet" href="{% static 'admin/css/recruitment_admin.css' %}" {% csp_nonce_attr %}>
 {% endblock %}
 
 {% block branding %}
 <a class="admin-brand" href="{% url 'admin:index' %}" aria-label="{% translate 'Recruitment dashboard' %}">
     <span class="admin-brand-mark" aria-hidden="true">AI</span>
-    <span>
+    <span class="admin-brand-copy">
         <strong>{% translate 'Interview Admin' %}</strong>
         <small>{% translate 'Recruitment console' %}</small>
     </span>
 </a>
+{% endblock %}
+
+{% block nav-global %}
+{% if has_permission %}
+{% url 'admin:index' as admin_index_url %}
+<nav class="admin-primary-nav" aria-label="{% translate 'Administration' %}">
+    <a class="admin-nav-link{% if request.path == admin_index_url %} is-active{% endif %}" href="{{ admin_index_url }}"{% if request.path == admin_index_url %} aria-current="page"{% endif %}>{% translate 'Dashboard' %}</a>
+    {% for group in admin_navigation %}
+    <details class="admin-nav-group{% if group.active %} is-active{% endif %}">
+        <summary>{{ group.label }}<span class="admin-chevron" aria-hidden="true"></span></summary>
+        <div class="admin-nav-menu">
+            {% for item in group.items %}
+            <a href="{{ item.url }}"{% if item.active %} class="is-active" aria-current="page"{% endif %}>{{ item.label }}</a>
+            {% endfor %}
+        </div>
+    </details>
+    {% endfor %}
+</nav>
+{% endif %}
 {% endblock %}
 
 {% block usertools %}
@@ -29,22 +48,31 @@
         <label class="visually-hidden" for="admin-language">{% translate 'Language' %}</label>
         <select id="admin-language" name="language" onchange="this.form.submit()">
             {% for language_code, language_name in LANGUAGES %}
-                <option value="{{ language_code }}"{% if language_code == CURRENT_LANGUAGE %} selected{% endif %}>{{ language_name }}</option>
+            <option value="{{ language_code }}"{% if language_code == CURRENT_LANGUAGE %} selected{% endif %}>{{ language_name }}</option>
             {% endfor %}
         </select>
     </form>
-    <span class="admin-user-name">{% firstof user.get_short_name user.get_username %}</span>
-    {% if user.has_usable_password %}<a href="{% url 'admin:password_change' %}">{% translate 'Password' %}</a>{% endif %}
-    <form id="logout-form" method="post" action="{% url 'admin:logout' %}">
-        {% csrf_token %}
-        <button type="submit">{% translate 'Sign out' %}</button>
-    </form>
-</div>
-{% endif %}
-{% endblock %}
 
-{% block nav-global %}
-{% if has_permission %}
-<a class="admin-header-action" href="{% url 'admin:create_job_from_configuration' %}">{% translate 'Create job' %}</a>
+    <a class="admin-header-action" href="{% url 'admin:create_job_from_configuration' %}">{% translate 'Create job' %}</a>
+
+    <details class="admin-account-menu">
+        <summary>
+            <span class="admin-avatar" aria-hidden="true">{{ user.get_username|slice:':1'|upper }}</span>
+            <span class="admin-account-name">{% firstof user.get_short_name user.get_username %}</span>
+            <span class="admin-chevron" aria-hidden="true"></span>
+        </summary>
+        <div class="admin-account-popover">
+            <div class="admin-account-meta">
+                <strong>{% firstof user.get_full_name user.get_username %}</strong>
+                {% if user.email %}<span>{{ user.email }}</span>{% endif %}
+            </div>
+            {% if user.has_usable_password %}<a href="{% url 'admin:password_change' %}">{% translate 'Change password' %}</a>{% endif %}
+            <form id="logout-form" method="post" action="{% url 'admin:logout' %}">
+                {% csrf_token %}
+                <button type="submit">{% translate 'Sign out' %}</button>
+            </form>
+        </div>
+    </details>
+</div>
 {% endif %}
 {% endblock %}

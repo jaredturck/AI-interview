@@ -3,11 +3,20 @@
 
 {% block breadcrumbs %}
 <ol class="breadcrumbs">
-<li><a href="{% url 'admin:index' %}">{% translate 'Home' %}</a></li>
-<li aria-current="page">{{ title }}</li>
+    <li><a href="{% url 'admin:index' %}">{% translate 'Home' %}</a></li>
+    <li aria-current="page">{{ title }}</li>
 </ol>
 {% endblock %}
 
+{% block content_title %}{% endblock %}
+{% block object-tools %}{% endblock %}
+
 {% block content %}
-<p>{% translate 'Something’s wrong with your database installation. Make sure the appropriate database tables have been created, and make sure the database is readable by the appropriate user.' %}</p>
+<section class="admin-error-page">
+    <p class="eyebrow">{% translate "Administration" %}</p>
+    <div class="admin-error-code admin-error-code-compact" aria-hidden="true">!</div>
+    <h1>{{ title }}</h1>
+    <p>{% translate 'Something’s wrong with your database installation. Make sure the appropriate database tables have been created, and make sure the database is readable by the appropriate user.' %}</p>
+    <a class="button secondary-button" href="{% url 'admin:index' %}">{% translate "Return to dashboard" %}</a>
+</section>
 {% endblock %}

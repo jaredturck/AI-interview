@@ -1,0 +1,477 @@
+/* Shell ------------------------------------------------------------------- */
+
+#container,
+.admin-shell {
+    min-height: 100vh;
+    width: 100%;
+    background: transparent;
+}
+
+.admin-header,
+#header {
+    position: sticky;
+    z-index: 1000;
+    top: 0;
+    height: var(--header-height);
+    padding: 0;
+    color: var(--text);
+    background: rgba(8, 13, 21, 0.9);
+    border-bottom: 1px solid var(--border-soft);
+    backdrop-filter: blur(18px) saturate(140%);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.015), 0 12px 30px rgba(0, 0, 0, 0.16);
+}
+
+.admin-header-inner {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    width: min(100%, 1720px);
+    height: 100%;
+    margin: 0 auto;
+    padding: 0 28px;
+}
+
+#branding {
+    flex: 0 0 auto;
+}
+
+.admin-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 11px;
+    color: var(--text) !important;
+    text-decoration: none;
+}
+
+.admin-brand:hover {
+    color: var(--text) !important;
+}
+
+.admin-brand-mark,
+.login-mark,
+.dashboard-core {
+    display: inline-grid;
+    place-items: center;
+    color: #fff;
+    background: linear-gradient(145deg, #8290ff 0%, var(--accent-strong) 58%, #4856cf 100%);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.22), 0 10px 24px rgba(var(--accent-rgb), 0.2);
+}
+
+.admin-brand-mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+}
+
+.admin-brand-copy {
+    display: grid;
+    gap: 1px;
+}
+
+.admin-brand-copy strong {
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 730;
+    letter-spacing: -0.015em;
+}
+
+.admin-brand-copy small {
+    color: var(--text-muted);
+    font-size: 10px;
+    letter-spacing: 0.025em;
+}
+
+.admin-primary-nav {
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+    gap: 4px;
+    min-width: 0;
+}
+
+.admin-nav-link,
+.admin-nav-group > summary {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 38px;
+    padding: 0 12px;
+    color: var(--text-secondary) !important;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    font-size: 12px;
+    font-weight: 650;
+    text-decoration: none;
+    cursor: pointer;
+    list-style: none;
+    white-space: nowrap;
+}
+
+.admin-nav-group > summary::-webkit-details-marker,
+.admin-account-menu > summary::-webkit-details-marker,
+.admin-filter-panel > summary::-webkit-details-marker,
+.admin-fieldset summary::-webkit-details-marker {
+    display: none;
+}
+
+.admin-nav-link:hover,
+.admin-nav-link:focus-visible,
+.admin-nav-group > summary:hover,
+.admin-nav-group > summary:focus-visible,
+.admin-nav-link.is-active,
+.admin-nav-group.is-active > summary,
+.admin-nav-group[open] > summary {
+    color: var(--text) !important;
+    background: var(--surface-2);
+    border-color: var(--border-soft);
+}
+
+.admin-nav-link.is-active::after,
+.admin-nav-group.is-active > summary::after {
+    position: absolute;
+    right: 12px;
+    bottom: -18px;
+    left: 12px;
+    height: 2px;
+    content: "";
+    background: var(--accent);
+    border-radius: 999px;
+    box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.55);
+}
+
+.admin-nav-group {
+    position: relative;
+}
+
+.admin-chevron {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(45deg) translateY(-2px);
+    opacity: 0.7;
+}
+
+.admin-nav-group[open] > summary .admin-chevron,
+.admin-account-menu[open] > summary .admin-chevron,
+.admin-filter-panel[open] > summary .admin-chevron {
+    transform: rotate(225deg) translate(-1px, -1px);
+}
+
+.admin-nav-menu,
+.admin-account-popover {
+    position: absolute;
+    z-index: 1100;
+    top: calc(100% + 10px);
+    min-width: 220px;
+    padding: 8px;
+    background: var(--surface-overlay);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg), inset 0 1px var(--highlight);
+    backdrop-filter: blur(22px);
+}
+
+.admin-nav-menu {
+    left: 0;
+}
+
+.admin-nav-menu::before,
+.admin-account-popover::before {
+    position: absolute;
+    top: -11px;
+    right: 0;
+    left: 0;
+    height: 11px;
+    content: "";
+}
+
+.admin-nav-menu a,
+.admin-account-popover > a,
+.admin-account-popover form button {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    min-height: 38px;
+    padding: 0 11px;
+    color: var(--text-secondary) !important;
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.admin-nav-menu a:hover,
+.admin-nav-menu a:focus-visible,
+.admin-nav-menu a.is-active,
+.admin-account-popover > a:hover,
+.admin-account-popover > a:focus-visible,
+.admin-account-popover form button:hover,
+.admin-account-popover form button:focus-visible {
+    color: var(--text) !important;
+    background: var(--surface-3);
+}
+
+.admin-nav-menu a.is-active {
+    box-shadow: inset 2px 0 var(--accent);
+}
+
+.admin-nav-group:not([open]) .admin-nav-menu,
+.admin-account-menu:not([open]) .admin-account-popover {
+    display: none;
+}
+
+@media (hover: hover) {
+    .admin-nav-group:hover .admin-nav-menu,
+    .admin-nav-group:focus-within .admin-nav-menu,
+    .admin-account-menu:hover .admin-account-popover,
+    .admin-account-menu:focus-within .admin-account-popover {
+        display: block;
+    }
+}
+
+.admin-user-tools,
+#user-tools {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-left: auto;
+    padding: 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+    letter-spacing: normal;
+    text-transform: none;
+}
+
+.admin-language-form {
+    margin: 0;
+}
+
+.admin-language-form select,
+#admin-language {
+    width: auto;
+    min-width: 116px;
+    height: 38px;
+    padding: 0 33px 0 12px;
+    color: var(--text-secondary);
+    background-color: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.admin-header-action {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    height: 38px;
+    padding: 0 15px !important;
+    color: #fff !important;
+    background: linear-gradient(180deg, #7583ff 0%, var(--accent-strong) 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 9px !important;
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.15), 0 8px 20px rgba(var(--accent-rgb), 0.16);
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none !important;
+}
+
+.admin-header-action:hover {
+    color: #fff !important;
+    transform: translateY(-1px);
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.18), 0 10px 24px rgba(var(--accent-rgb), 0.24);
+}
+
+.admin-account-menu {
+    position: relative;
+}
+
+.admin-account-menu > summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 3px 8px 3px 4px;
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.admin-account-menu > summary:hover,
+.admin-account-menu[open] > summary {
+    color: var(--text);
+    background: var(--surface-2);
+    border-color: var(--border-soft);
+}
+
+.admin-avatar {
+    display: grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    color: #dfe3ff;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-border);
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.admin-account-name {
+    max-width: 118px;
+    overflow: hidden;
+    color: var(--text-secondary);
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.admin-account-popover {
+    right: 0;
+    min-width: 230px;
+}
+
+.admin-account-meta {
+    display: grid;
+    gap: 2px;
+    margin: 2px 2px 7px;
+    padding: 9px 9px 12px;
+    border-bottom: 1px solid var(--border-soft);
+}
+
+.admin-account-meta strong {
+    overflow: hidden;
+    color: var(--text);
+    font-size: 12px;
+    text-overflow: ellipsis;
+}
+
+.admin-account-meta span {
+    overflow: hidden;
+    color: var(--text-muted);
+    font-size: 11px;
+    text-overflow: ellipsis;
+}
+
+.admin-account-popover form {
+    margin: 0;
+}
+
+.admin-account-popover form button {
+    color: #ff9ea4 !important;
+}
+
+.admin-breadcrumb-shell {
+    border-bottom: 1px solid var(--border-soft);
+    background: rgba(10, 16, 25, 0.58);
+}
+
+.admin-breadcrumbs {
+    width: min(100%, var(--content-width));
+    margin: 0 auto;
+    padding: 11px 28px;
+}
+
+.breadcrumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    color: var(--text-muted);
+    background: transparent;
+    list-style: none;
+    font-size: 11px;
+}
+
+.breadcrumbs li {
+    display: inline-flex;
+    align-items: center;
+    color: var(--text-muted);
+}
+
+.breadcrumbs li + li::before {
+    margin: 0 8px;
+    color: var(--text-faint);
+    content: "/";
+}
+
+.breadcrumbs a {
+    color: var(--text-secondary) !important;
+    text-decoration: none;
+}
+
+.breadcrumbs a:hover {
+    color: var(--text) !important;
+}
+
+.admin-main {
+    display: block;
+    min-height: calc(100vh - var(--header-height));
+}
+
+.admin-content-shell {
+    width: min(100%, var(--content-width));
+    margin: 0 auto;
+    padding: 34px 28px 64px;
+}
+
+#content {
+    width: 100%;
+    padding: 0;
+}
+
+.page-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    min-height: 58px;
+    margin-bottom: 24px;
+}
+
+.page-heading-copy {
+    min-width: 0;
+}
+
+.page-heading h1,
+#content h1 {
+    margin: 0;
+    color: var(--text);
+    font-size: clamp(26px, 2.5vw, 34px);
+    font-weight: 760;
+    line-height: 1.12;
+    letter-spacing: -0.035em;
+}
+
+.page-subtitle,
+.page-heading h2 {
+    margin: 7px 0 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 450;
+}
+
+.eyebrow {
+    margin: 0 0 7px;
+    color: var(--accent-bright);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+}

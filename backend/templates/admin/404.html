@@ -1,12 +1,16 @@
 {% extends "admin/base_site.html" %}
 {% load i18n %}
 
-{% block title %}{% translate 'Page not found' %}{% endblock %}
+{% block title %}{% translate 'Page not found' %} | {{ site_title }}{% endblock %}
+{% block content_title %}{% endblock %}
+{% block object-tools %}{% endblock %}
 
 {% block content %}
-
-<h2>{% translate 'Page not found' %}</h2>
-
-<p>{% translate 'We’re sorry, but the requested page could not be found.' %}</p>
-
+<div class="admin-error-page">
+    <span class="admin-error-code">404</span>
+    <p class="eyebrow">{% translate 'Page not found' %}</p>
+    <h1>{% translate 'That page isn’t available.' %}</h1>
+    <p>{% translate 'The address may have changed or the page may no longer exist.' %}</p>
+    <a class="button default" href="{% url 'admin:index' %}">{% translate 'Return to dashboard' %}</a>
+</div>
 {% endblock %}

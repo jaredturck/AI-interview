@@ -1,22 +1,25 @@
-{% load i18n static %}
+{% load i18n %}
 {% if cl.search_fields %}
-<div id="toolbar">
-<h2 id="changelist-search-form" class="visually-hidden">{% blocktranslate with name=cl.opts.verbose_name_plural %}Search {{ name }}{% endblocktranslate %}</h2>
-<form id="changelist-search" method="get" role="search" aria-labelledby="changelist-search-form">
-<div><!-- DIV needed for valid HTML -->
-<label for="searchbar"><img src="{% static "admin/img/search.svg" %}" alt="Search"></label>
-<input type="text" size="40" name="{{ search_var }}" value="{{ cl.query }}" id="searchbar"{% if cl.search_help_text %} aria-describedby="searchbar_helptext"{% endif %}>
-<input type="submit" value="{% translate 'Search' %}">
-{% if show_result_count %}
-    <span class="small quiet">{% blocktranslate count counter=cl.result_count %}{{ counter }} result{% plural %}{{ counter }} results{% endblocktranslate %} (<a href="?{% if cl.is_popup %}{{ is_popup_var }}=1{% if cl.add_facets %}&{% endif %}{% endif %}{% if cl.add_facets %}{{ is_facets_var }}{% endif %}">{% if cl.show_full_result_count %}{% blocktranslate with full_result_count=cl.full_result_count %}{{ full_result_count }} total{% endblocktranslate %}{% else %}{% translate "Show all" %}{% endif %}</a>)</span>
-{% endif %}
-{% for pair in cl.params.items %}
-    {% if pair.0 != search_var %}<input type="hidden" name="{{ pair.0 }}" value="{{ pair.1 }}">{% endif %}
-{% endfor %}
+<div id="toolbar" class="changelist-search-toolbar">
+    <h2 id="changelist-search-form" class="visually-hidden">{% blocktranslate with name=cl.opts.verbose_name_plural %}Search {{ name }}{% endblocktranslate %}</h2>
+    <form id="changelist-search" method="get" role="search" aria-labelledby="changelist-search-form">
+        <div class="admin-search-control">
+            <span class="admin-search-icon" aria-hidden="true"></span>
+            <label class="visually-hidden" for="searchbar">{% blocktranslate with name=cl.opts.verbose_name_plural %}Search {{ name }}{% endblocktranslate %}</label>
+            <input type="search" name="{{ search_var }}" value="{{ cl.query }}" id="searchbar" placeholder="{% blocktranslate with name=cl.opts.verbose_name_plural %}Search {{ name }}{% endblocktranslate %}"{% if cl.search_help_text %} aria-describedby="searchbar_helptext"{% endif %}>
+            <button type="submit" class="button search-submit">{% translate 'Search' %}</button>
+        </div>
+        {% if show_result_count %}
+        <div class="search-result-count">
+            {% blocktranslate count counter=cl.result_count %}{{ counter }} result{% plural %}{{ counter }} results{% endblocktranslate %}
+            <span aria-hidden="true">·</span>
+            <a href="?{% if cl.is_popup %}{{ is_popup_var }}=1{% if cl.add_facets %}&{% endif %}{% endif %}{% if cl.add_facets %}{{ is_facets_var }}{% endif %}">{% if cl.show_full_result_count %}{% blocktranslate with full_result_count=cl.full_result_count %}{{ full_result_count }} total{% endblocktranslate %}{% else %}{% translate 'Show all' %}{% endif %}</a>
+        </div>
+        {% endif %}
+        {% for pair in cl.params.items %}
+            {% if pair.0 != search_var %}<input type="hidden" name="{{ pair.0 }}" value="{{ pair.1 }}">{% endif %}
+        {% endfor %}
+        {% if cl.search_help_text %}<p class="help search-help" id="searchbar_helptext">{{ cl.search_help_text }}</p>{% endif %}
+    </form>
 </div>
-{% if cl.search_help_text %}
-<br class="clear">
-<div class="help" id="searchbar_helptext">{{ cl.search_help_text }}</div>
-{% endif %}
-</form></div>
 {% endif %}

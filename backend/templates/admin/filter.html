@@ -1,12 +1,17 @@
 {% load i18n %}
-<details data-filter-title="{{ title }}" open>
-  <summary>
-    {% blocktranslate with filter_title=title %} By {{ filter_title }} {% endblocktranslate %}
-  </summary>
-  <ul>
-  {% for choice in choices %}
-    <li{% if choice.selected %} class="selected"{% endif %}>
-    <a href="{{ choice.query_string|iriencode }}">{{ choice.display }}</a></li>
-  {% endfor %}
-  </ul>
+<details class="admin-filter-group" data-filter-title="{{ title }}" open>
+    <summary>
+        <span>{{ title }}</span>
+        <span class="admin-chevron" aria-hidden="true"></span>
+    </summary>
+    <ul>
+        {% for choice in choices %}
+        <li{% if choice.selected %} class="selected"{% endif %}>
+            <a href="{{ choice.query_string|iriencode }}"{% if choice.selected %} aria-current="true"{% endif %}>
+                <span>{{ choice.display }}</span>
+                {% if choice.selected %}<span class="filter-selected-mark" aria-hidden="true"></span>{% endif %}
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
 </details>

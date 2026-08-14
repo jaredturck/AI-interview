@@ -1,0 +1,692 @@
+/* Create job -------------------------------------------------------------- */
+
+.create-job-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.55fr);
+    gap: 22px;
+    max-width: 1160px;
+}
+
+.create-job-card,
+.create-job-sidecard {
+    padding: 28px;
+}
+
+.create-job-intro {
+    display: grid;
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border-soft);
+}
+
+.create-job-icon {
+    position: relative;
+    display: block;
+    width: 52px;
+    height: 52px;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-border);
+    border-radius: 14px;
+}
+
+.create-job-icon::before,
+.create-job-icon::after {
+    position: absolute;
+    top: 24px;
+    left: 15px;
+    width: 22px;
+    height: 3px;
+    content: "";
+    background: var(--accent-bright);
+    border-radius: 2px;
+}
+
+.create-job-icon::after {
+    transform: rotate(90deg);
+}
+
+.create-job-intro h1 {
+    margin: 0;
+    font-size: clamp(28px, 3vw, 38px) !important;
+}
+
+.create-job-intro p:not(.eyebrow) {
+    max-width: 680px;
+    margin: 10px 0 0;
+    color: var(--text-secondary);
+}
+
+.config-files {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin: 22px 0;
+}
+
+.config-files > div {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 11px;
+    align-items: center;
+    min-height: 72px;
+    padding: 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+}
+
+.config-file-icon {
+    position: relative;
+    display: block;
+    width: 32px;
+    height: 38px;
+    border: 1px solid var(--border-strong);
+    border-radius: 7px;
+}
+
+.config-file-icon::after {
+    position: absolute;
+    top: 10px;
+    left: 7px;
+    width: 16px;
+    height: 1px;
+    content: "";
+    background: var(--text-muted);
+    box-shadow: 0 5px var(--text-muted), 0 10px var(--text-muted);
+}
+
+.config-files span:not(.config-file-icon) {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.config-files code {
+    color: var(--text-muted);
+    background: transparent;
+    font-size: 10px;
+}
+
+.create-job-note {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 12px;
+    padding: 14px 15px;
+    color: var(--text-secondary);
+    background: var(--accent-softer);
+    border: 1px solid rgba(var(--accent-rgb), 0.18);
+    border-radius: var(--radius);
+}
+
+.note-icon {
+    display: grid;
+    width: 25px;
+    height: 25px;
+    place-items: center;
+    color: var(--accent-bright);
+    border: 1px solid var(--accent-border);
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.create-job-note strong {
+    color: var(--text);
+    font-size: 11px;
+}
+
+.create-job-note p {
+    margin: 3px 0 0;
+    color: var(--text-muted);
+    font-size: 10px;
+}
+
+.create-job-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 24px;
+}
+
+.create-job-sidecard {
+    align-self: start;
+}
+
+.process-list {
+    display: grid;
+    gap: 0;
+    margin: 18px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.process-list li {
+    position: relative;
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: 12px;
+    padding: 0 0 22px;
+}
+
+.process-list li:not(:last-child)::after {
+    position: absolute;
+    top: 30px;
+    bottom: 3px;
+    left: 14px;
+    width: 1px;
+    content: "";
+    background: var(--border);
+}
+
+.process-list li > span {
+    display: grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    color: var(--accent-bright);
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-border);
+    border-radius: 9px;
+    font-size: 10px;
+    font-weight: 800;
+}
+
+.process-list strong {
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+.process-list p {
+    margin: 3px 0 0;
+    color: var(--text-muted);
+    font-size: 10px;
+}
+/* Login ------------------------------------------------------------------- */
+
+.recruitment-login {
+    background:
+        radial-gradient(circle at 18% 40%, rgba(var(--accent-rgb), 0.13), transparent 30rem),
+        radial-gradient(circle at 85% 70%, rgba(var(--accent-rgb), 0.055), transparent 25rem),
+        var(--canvas);
+}
+
+.recruitment-login .admin-header {
+    background: transparent;
+    border-bottom-color: transparent;
+    box-shadow: none;
+}
+
+.recruitment-login .admin-content-shell {
+    width: min(100%, 1180px);
+    padding-top: clamp(52px, 8vh, 100px);
+}
+
+.login-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+    gap: clamp(50px, 8vw, 100px);
+    align-items: center;
+    min-height: 560px;
+}
+
+.login-intro {
+    display: grid;
+    grid-template-columns: 230px minmax(0, 1fr);
+    gap: 35px;
+    align-items: center;
+}
+
+.login-visual {
+    position: relative;
+    display: grid;
+    width: 230px;
+    height: 230px;
+    place-items: center;
+}
+
+.login-mark {
+    position: relative;
+    z-index: 3;
+    width: 86px;
+    height: 86px;
+    border-radius: 25px;
+    font-size: 22px;
+    font-weight: 850;
+}
+
+.login-orbit-one {
+    width: 160px;
+    height: 160px;
+}
+
+.login-orbit-one::after {
+    top: 15px;
+    right: 28px;
+}
+
+.login-orbit-two {
+    width: 220px;
+    height: 220px;
+    border-color: rgba(var(--accent-rgb), 0.11);
+}
+
+.login-orbit-two::after {
+    bottom: 28px;
+    left: 26px;
+    opacity: 0.5;
+}
+
+.login-intro-copy h1 {
+    margin: 0;
+    font-size: clamp(38px, 5vw, 58px) !important;
+    line-height: 1;
+}
+
+.login-intro-copy > p:not(.eyebrow) {
+    max-width: 460px;
+    margin: 16px 0 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.login-card {
+    padding: 28px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 120px),
+        var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg), inset 0 1px var(--highlight);
+}
+
+.login-card-heading {
+    margin-bottom: 22px;
+}
+
+.login-card h2 {
+    margin: 0;
+    color: var(--text);
+    font-size: 25px;
+    font-weight: 760;
+    letter-spacing: -0.03em;
+}
+
+.login-card-heading > p:not(.eyebrow) {
+    margin: 6px 0 0;
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
+.login-card .form-row {
+    padding: 0 0 17px;
+    border: 0;
+}
+
+.login-card input[type="text"],
+.login-card input[type="password"] {
+    width: 100%;
+    min-height: 44px;
+}
+
+.login-card .submit-row {
+    position: static;
+    display: block;
+    margin-top: 3px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+}
+
+.login-card .submit-row input {
+    width: 100%;
+    min-height: 44px;
+}
+/* Password, history, destructive and error pages ------------------------- */
+
+.password-change-content {
+    max-width: 900px;
+}
+
+.password-card .fieldset-header {
+    display: block;
+}
+
+.password-card .fieldset-header p {
+    margin: 5px 0 0;
+    color: var(--text-muted);
+    font-size: 10px;
+}
+
+.password-status-note {
+    margin: 16px 20px 0;
+    padding: 11px 13px;
+    color: #ead299;
+    background: rgba(var(--warning-rgb), 0.07);
+    border: 1px solid rgba(var(--warning-rgb), 0.18);
+    border-radius: 8px;
+    font-size: 10px;
+}
+
+.history-surface {
+    overflow: hidden;
+}
+
+.history-paginator {
+    min-height: 58px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--border-soft);
+}
+
+.table-secondary {
+    display: block;
+    margin-top: 2px;
+    color: var(--text-muted);
+    font-size: 9px;
+}
+
+.destructive-layout {
+    display: grid;
+    place-items: start center;
+    padding-top: 20px;
+}
+
+.destructive-card {
+    width: min(100%, 720px);
+    padding: 30px;
+}
+
+.destructive-card-wide {
+    width: min(100%, 900px);
+}
+
+.destructive-icon {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    margin-bottom: 20px;
+    color: #ffb4b9;
+    background: rgba(var(--danger-rgb), 0.1);
+    border: 1px solid rgba(var(--danger-rgb), 0.28);
+    border-radius: 13px;
+    font-size: 18px;
+    font-weight: 850;
+}
+
+.destructive-card h1 {
+    margin: 0;
+    font-size: 31px !important;
+}
+
+.destructive-card > p:not(.eyebrow) {
+    margin: 12px 0 0;
+    color: var(--text-secondary);
+}
+
+.deletion-list,
+.delete-summary {
+    margin-top: 20px;
+    padding: 16px;
+    color: var(--text-secondary);
+    background: var(--surface-2);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+}
+
+.deletion-list h2 {
+    margin: 0 0 10px;
+    color: var(--text);
+    font-size: 12px;
+}
+
+.deletion-list ul,
+#deleted-objects {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--text-secondary);
+}
+
+.deletion-list li {
+    margin: 5px 0;
+}
+
+.destructive-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 24px;
+}
+
+.admin-error-page {
+    display: grid;
+    justify-items: start;
+    max-width: 680px;
+    padding: 60px 0;
+}
+
+.admin-error-code {
+    margin-bottom: 18px;
+    color: rgba(var(--accent-rgb), 0.2);
+    font-size: 96px;
+    font-weight: 850;
+    line-height: 0.8;
+    letter-spacing: -0.08em;
+}
+
+.admin-error-page h1 {
+    margin: 0;
+}
+
+.admin-error-page > p:not(.eyebrow) {
+    max-width: 540px;
+    margin: 14px 0 24px;
+    color: var(--text-secondary);
+}
+/* Misc stock admin surfaces ---------------------------------------------- */
+
+.module,
+.inline-group,
+#changelist,
+#changelist-filter,
+.dashboard .module,
+#content-related {
+    color: var(--text-secondary);
+}
+
+.module h2,
+.module caption,
+.inline-group h2 {
+    color: var(--text);
+}
+
+#content-related {
+    background: transparent;
+}
+
+p,
+li,
+dt,
+dd {
+    color: inherit;
+}
+
+code,
+pre {
+    color: #c7ceef;
+    background: var(--surface-2);
+    border-radius: 6px;
+}
+
+pre {
+    padding: 14px;
+    overflow: auto;
+}
+
+hr {
+    border: 0;
+    border-top: 1px solid var(--border);
+}
+
+#footer {
+    padding: 0;
+}
+
+.popup #header,
+.popup .admin-breadcrumb-shell {
+    display: none;
+}
+
+.popup .admin-content-shell {
+    padding-top: 20px;
+}
+
+/* Admin account flow ------------------------------------------------------ */
+
+.auth-admin-layout,
+.auth-result-layout {
+    display: grid;
+    place-items: start center;
+    padding-top: 18px;
+}
+
+.auth-admin-card {
+    width: min(100%, 760px);
+    overflow: hidden;
+}
+
+.auth-admin-card .fieldset-header {
+    padding: 24px 26px 20px;
+}
+
+.auth-admin-card .fieldset-header h1 {
+    margin: 3px 0 0;
+    font-size: 25px;
+}
+
+.auth-admin-card .fieldset-header p:not(.eyebrow) {
+    max-width: 590px;
+    margin: 8px 0 0;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.auth-admin-card .fieldset-body {
+    border-top: 1px solid var(--border-soft);
+}
+
+.auth-admin-actions {
+    position: static;
+    margin: 0;
+    border-radius: 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    box-shadow: none;
+}
+
+.auth-result-layout {
+    padding-top: 44px;
+}
+
+.auth-result-layout-centered {
+    min-height: calc(100vh - var(--header-height) - 140px);
+    place-items: center;
+    padding-top: 0;
+}
+
+.auth-result-card {
+    width: min(100%, 560px);
+    padding: 34px;
+    background:
+        radial-gradient(circle at 100% 0%, rgba(var(--accent-rgb), 0.11), transparent 42%),
+        var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg), var(--highlight);
+}
+
+.auth-result-icon {
+    display: grid;
+    width: 46px;
+    height: 46px;
+    place-items: center;
+    margin-bottom: 22px;
+    color: var(--accent-bright);
+    background: rgba(var(--accent-rgb), 0.1);
+    border: 1px solid rgba(var(--accent-rgb), 0.24);
+    border-radius: 14px;
+    font-size: 13px;
+    font-weight: 850;
+    letter-spacing: -0.02em;
+}
+
+.auth-result-icon.success {
+    color: #a7efc7;
+    background: rgba(var(--success-rgb), 0.1);
+    border-color: rgba(var(--success-rgb), 0.24);
+    font-size: 19px;
+}
+
+.auth-result-card h1 {
+    margin: 4px 0 0;
+    font-size: 30px !important;
+}
+
+.auth-result-card > p:not(.eyebrow) {
+    margin: 11px 0 24px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.form-intro-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    color: var(--text-secondary);
+    background: rgba(var(--accent-rgb), 0.06);
+    border: 1px solid rgba(var(--accent-rgb), 0.14);
+    border-radius: var(--radius-sm);
+}
+
+.form-intro-note-icon {
+    display: grid;
+    flex: 0 0 auto;
+    width: 19px;
+    height: 19px;
+    place-items: center;
+    color: var(--accent-bright);
+    background: rgba(var(--accent-rgb), 0.12);
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: 850;
+}
+
+.form-intro-note p {
+    margin: 1px 0 0;
+    color: inherit;
+    line-height: 1.5;
+}
+
+.admin-error-code-compact {
+    display: grid;
+    width: 60px;
+    height: 60px;
+    place-items: center;
+    margin: 12px 0 22px;
+    color: #ead299;
+    background: rgba(var(--warning-rgb), 0.08);
+    border: 1px solid rgba(var(--warning-rgb), 0.2);
+    border-radius: 16px;
+    font-size: 28px;
+    line-height: 1;
+    letter-spacing: 0;
+}

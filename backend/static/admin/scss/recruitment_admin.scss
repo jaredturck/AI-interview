@@ -1,0 +1,11 @@
+/* Compile this entrypoint to ../css/recruitment_admin.css. */
+
+@use 'tokens';
+@use 'shell';
+@use 'components';
+@use 'dashboard';
+@use 'changelist';
+@use 'forms';
+@use 'evidence';
+@use 'pages';
+@use 'responsive';

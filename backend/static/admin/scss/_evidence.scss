@@ -1,0 +1,224 @@
+/* Inlines and evidence ---------------------------------------------------- */
+
+.admin-inline-sections:empty {
+    display: none;
+}
+
+.inline-group {
+    margin: 0;
+}
+
+.admin-inline-card {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+.inline-group-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 64px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-soft);
+}
+
+.inline-group-heading h2,
+.inline-heading {
+    margin: 0 !important;
+    padding: 0 !important;
+    color: var(--text) !important;
+    background: transparent !important;
+    font-size: 14px !important;
+    font-weight: 720 !important;
+    letter-spacing: -0.015em;
+}
+
+.stacked-inline-list {
+    display: grid;
+}
+
+.inline-group-stacked .inline-related {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--border-soft);
+}
+
+.inline-group-stacked .inline-related:last-child {
+    border-bottom: 0;
+}
+
+.inline-related-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    min-height: 50px;
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.012);
+    border-bottom: 1px solid var(--border-soft);
+}
+
+.inline-related-heading > div:first-child {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+}
+
+.inline-kicker {
+    color: var(--text-muted);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+.inline_label {
+    overflow: hidden;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.inline-object-tools {
+    display: flex;
+    gap: 7px;
+}
+
+.inline-object-tools a {
+    padding: 5px 8px;
+    color: var(--text-secondary) !important;
+    background: var(--surface-2);
+    border: 1px solid var(--border-soft);
+    border-radius: 6px;
+    font-size: 9px;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.inline-group-stacked .admin-fieldset {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.inline-group-stacked .fieldset-header {
+    display: none;
+}
+
+.inline-table-wrapper {
+    overflow-x: auto;
+}
+
+.inline-table-wrapper .original {
+    width: 1%;
+    min-width: 24px;
+}
+
+.inline-table-wrapper td.field-text,
+.inline-table-wrapper td.field-answer,
+.inline-table-wrapper td.field-question {
+    min-width: 280px;
+    max-width: 640px;
+    white-space: normal;
+}
+
+.readonly-inline {
+    width: auto;
+    min-height: 0;
+    padding: 0;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+}
+
+.help-tooltip {
+    display: inline-grid;
+    width: 14px;
+    height: 14px;
+    place-items: center;
+    margin-left: 4px;
+    color: var(--text-muted);
+    background: var(--surface-3);
+    border-radius: 50%;
+    font-size: 8px;
+    font-style: normal;
+}
+/* Status badges ----------------------------------------------------------- */
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 24px;
+    padding: 0 8px;
+    color: var(--text-secondary);
+    background: var(--surface-2);
+    border: 1px solid var(--border-soft);
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 750;
+    white-space: nowrap;
+}
+
+.status-badge::before {
+    width: 6px;
+    height: 6px;
+    content: "";
+    background: var(--text-muted);
+    border-radius: 50%;
+}
+
+.status-open,
+.status-active,
+.status-complete,
+.status-evaluated {
+    color: #a9e7c7;
+    background: rgba(var(--success-rgb), 0.08);
+    border-color: rgba(var(--success-rgb), 0.2);
+}
+
+.status-open::before,
+.status-active::before,
+.status-complete::before,
+.status-evaluated::before {
+    background: var(--success);
+}
+
+.status-interview_pending,
+.status-evaluating,
+.status-created,
+.status-interview_in_progress {
+    color: #e9d19a;
+    background: rgba(var(--warning-rgb), 0.08);
+    border-color: rgba(var(--warning-rgb), 0.2);
+}
+
+.status-interview_pending::before,
+.status-evaluating::before,
+.status-created::before,
+.status-interview_in_progress::before {
+    background: var(--warning);
+}
+
+.status-terminated,
+.status-evaluation_failed,
+.status-withdrawn {
+    color: #f3acb0;
+    background: rgba(var(--danger-rgb), 0.08);
+    border-color: rgba(var(--danger-rgb), 0.2);
+}
+
+.status-terminated::before,
+.status-evaluation_failed::before,
+.status-withdrawn::before {
+    background: var(--danger);
+}

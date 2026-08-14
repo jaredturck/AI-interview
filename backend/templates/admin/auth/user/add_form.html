@@ -3,7 +3,10 @@
 
 {% block form_top %}
   {% if not is_popup %}
-    <p>{% translate "After you’ve created a user, you’ll be able to edit more user options." %}</p>
+    <div class="form-intro-note">
+      <span class="form-intro-note-icon" aria-hidden="true">i</span>
+      <p>{% translate "After you’ve created a user, you’ll be able to edit more user options." %}</p>
+    </div>
   {% endif %}
 {% endblock %}
 {% block extrahead %}

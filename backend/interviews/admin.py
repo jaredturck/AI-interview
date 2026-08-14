@@ -19,6 +19,7 @@ class RecruitmentAdminSite(admin.AdminSite):
     site_title = _('AI Interview Admin')
     index_title = _('Recruitment dashboard')
     index_template = 'admin/index.html'
+    enable_nav_sidebar = False
 
     def get_urls(self):
         ''' Add the agreed staff-only job creation workflow beside normal Django admin routes. '''
@@ -36,7 +37,73 @@ class RecruitmentAdminSite(admin.AdminSite):
             'interviews_evaluating': JobApplication.objects.filter(status='evaluating').count(),
             'reviews_requested': HumanReviewRequest.objects.count(),
         }
+        context['admin_navigation'] = self.get_navigation(request, context.get('available_apps', []))
         return context
+
+    def get_navigation(self, request, available_apps):
+        ''' Build the compact permission-aware navigation used by the custom top bar. '''
+        models = {}
+
+        for app in available_apps:
+            for model in app['models']:
+                models[(app['app_label'], model['object_name'].lower())] = model
+
+        groups = [
+            {
+                'label': _('Recruitment'),
+                'items': [
+                    {'label': _('Create job'), 'url': reverse('admin:create_job_from_configuration')},
+                    {'label': _('Jobs'), 'model': models.get(('interviews', 'job'))},
+                    {'label': _('Job applications'), 'model': models.get(('interviews', 'jobapplication'))},
+                ]
+            },
+            {
+                'label': _('Interviews'),
+                'items': [
+                    {'label': _('Interview sessions'), 'model': models.get(('interviews', 'interviewsession'))},
+                    {'label': _('Conversation turns'), 'model': models.get(('interviews', 'conversationturn'))},
+                    {'label': _('Evaluation answers'), 'model': models.get(('interviews', 'evaluationanswer'))},
+                    {'label': _('Human review requests'), 'model': models.get(('interviews', 'humanreviewrequest'))},
+                ]
+            },
+            {
+                'label': _('Access'),
+                'items': [
+                    {'label': _('Users'), 'model': models.get(('auth', 'user'))},
+                    {'label': _('Groups'), 'model': models.get(('auth', 'group'))},
+                ]
+            },
+        ]
+
+        navigation = []
+
+        for group in groups:
+            items = []
+
+            for item in group['items']:
+                url = item.get('url')
+                model = item.get('model')
+
+                if model:
+                    url = model.get('admin_url')
+
+                if not url:
+                    continue
+
+                items.append({
+                    'label': item['label'],
+                    'url': url,
+                    'active': request.path.startswith(url),
+                })
+
+            if items:
+                navigation.append({
+                    'label': group['label'],
+                    'items': items,
+                    'active': any(item['active'] for item in items),
+                })
+
+        return navigation
 
     def create_job_view(self, request):
         ''' Confirm and execute creation of one open Job snapshot from the current configuration files. '''

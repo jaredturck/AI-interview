@@ -4,9 +4,11 @@
     "version": "0.1.0",
     "type": "module",
     "scripts": {
-        "dev": "concurrently --kill-others --names backend,frontend \"./.venv/bin/python backend/manage.py runserver 127.0.0.1:8000\" \"vite\"",
-        "build": "tsc -b && vite build",
-        "test": "./.venv/bin/python backend/manage.py check && ./.venv/bin/python backend/manage.py makemigrations --check --dry-run && ./.venv/bin/python -m pytest backend && npm run build"
+        "dev": "concurrently --kill-others --names backend,frontend,admin-css \"./.venv/bin/python backend/manage.py runserver 127.0.0.1:8000\" \"vite\" \"sass --watch backend/static/admin/scss/recruitment_admin.scss backend/static/admin/css/recruitment_admin.css --style=expanded --no-source-map\"",
+        "build": "npm run build:frontend && npm run build:admin",
+        "test": "./.venv/bin/python backend/manage.py check && ./.venv/bin/python backend/manage.py makemigrations --check --dry-run && ./.venv/bin/python -m pytest backend && npm run build",
+        "build:frontend": "tsc -b && vite build",
+        "build:admin": "sass backend/static/admin/scss/recruitment_admin.scss backend/static/admin/css/recruitment_admin.css --style=compressed --no-source-map"
     },
     "dependencies": {
         "react": "^19.2.8",
@@ -23,6 +25,7 @@
         "vite": "^8.2.0",
         "typescript": "^5.9.0",
         "@types/react": "^19.2.0",
-        "@types/react-dom": "^19.2.0"
+        "@types/react-dom": "^19.2.0",
+        "sass": "^1.102.0"
     }
 }

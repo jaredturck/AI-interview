@@ -35,3 +35,30 @@ def test_admin_creates_open_job_from_configuration(monkeypatch):
     assert job.title == 'Commercial Cleaner'
     assert job.description == description
     assert job.evaluation_questions == questions
+
+@pytest.mark.django_db
+def test_admin_change_list_uses_redesigned_shell_and_final_stylesheet():
+    ''' Verify stock changelist behavior is wrapped by the custom top navigation and final visual layer. '''
+    user = User.objects.create_superuser(username='admin@example.com', email='admin@example.com', password='A-strong-test-password-42')
+    client = Client()
+    client.force_login(user)
+    response = client.get('/admin/auth/user/')
+    assert response.status_code == 200
+    assert b'class="admin-primary-nav"' in response.content
+    assert b'id="nav-sidebar"' not in response.content
+    assert b'class="changelist-surface' in response.content
+    assert b'class="admin-filter-panel"' in response.content
+    assert response.content.index(b'admin/css/changelists.css') < response.content.index(b'admin/css/recruitment_admin.css')
+
+@pytest.mark.django_db
+def test_admin_change_form_uses_redesigned_fieldsets_without_losing_form_contracts():
+    ''' Verify change forms keep Django's form hooks while using the redesigned field and action surfaces. '''
+    user = User.objects.create_superuser(username='admin@example.com', email='admin@example.com', password='A-strong-test-password-42')
+    client = Client()
+    client.force_login(user)
+    response = client.get(f'/admin/auth/user/{user.pk}/change/')
+    assert response.status_code == 200
+    assert b'id="user_form"' in response.content
+    assert b'class="module aligned admin-fieldset' in response.content
+    assert b'class="submit-row"' in response.content
+    assert response.content.index(b'admin/css/forms.css') < response.content.index(b'admin/css/recruitment_admin.css')

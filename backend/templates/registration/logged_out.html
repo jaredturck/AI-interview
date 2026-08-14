@@ -1,19 +1,19 @@
 {% extends "admin/base_site.html" %}
 {% load i18n %}
 
-{% block breadcrumbs %}
-<ol class="breadcrumbs">
-<li><a href="{% url 'admin:index' %}">{% translate 'Home' %}</a></li>
-<li aria-current="page">{% translate 'Logout' %}</li>
-</ol>
-{% endblock %}
-
-{% block nav-sidebar %}{% endblock %}
+{% block title %}{% translate "Logged out" %} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+{% block nav-breadcrumbs %}{% endblock %}
+{% block content_title %}{% endblock %}
+{% block object-tools %}{% endblock %}
 
 {% block content %}
-
-<p>{% translate "Thanks for spending some quality time with the web site today." %}</p>
-
-<p><a href="{% url 'admin:index' %}">{% translate 'Log in again' %}</a></p>
-
+<div class="auth-result-layout auth-result-layout-centered">
+    <section class="auth-result-card">
+        <div class="auth-result-icon" aria-hidden="true">AI</div>
+        <p class="eyebrow">{% translate "Interview Admin" %}</p>
+        <h1>{% translate "Logged out" %}</h1>
+        <p>{% translate "Thanks for spending some quality time with the web site today." %}</p>
+        <a class="button default" href="{% url 'admin:login' %}">{% translate "Log in again" %}</a>
+    </section>
+</div>
 {% endblock %}

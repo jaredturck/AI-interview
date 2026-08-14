@@ -1,0 +1,194 @@
+/*
+ * Interview Admin design system.
+ * This SCSS source intentionally uses CSS custom properties for runtime design tokens.
+ * It compiles directly to backend/static/admin/css/recruitment_admin.css.
+ */
+
+:root {
+    --accent: #6f7cff;
+    --accent-rgb: 111, 124, 255;
+    --accent-strong: #5867ea;
+    --accent-bright: #8994ff;
+    --accent-soft: rgba(var(--accent-rgb), 0.13);
+    --accent-softer: rgba(var(--accent-rgb), 0.07);
+    --accent-border: rgba(var(--accent-rgb), 0.34);
+    --accent-focus: rgba(var(--accent-rgb), 0.26);
+
+    --canvas: #070b12;
+    --canvas-raised: #0a1019;
+    --surface-1: #0e1622;
+    --surface-2: #131e2d;
+    --surface-3: #182538;
+    --surface-4: #1d2c42;
+    --surface-hover: #202f45;
+    --surface-input: #0b1420;
+    --surface-overlay: rgba(10, 16, 25, 0.96);
+
+    --border-soft: rgba(164, 182, 208, 0.09);
+    --border: rgba(164, 182, 208, 0.16);
+    --border-strong: rgba(164, 182, 208, 0.26);
+    --highlight: rgba(255, 255, 255, 0.045);
+
+    --text: #f4f7fb;
+    --text-secondary: #a9b5c7;
+    --text-muted: #7c8ca2;
+    --text-faint: #6e7f96;
+
+    --success: #50c98a;
+    --success-rgb: 80, 201, 138;
+    --warning: #e7b85c;
+    --warning-rgb: 231, 184, 92;
+    --danger: #ef7077;
+    --danger-rgb: 239, 112, 119;
+
+    --shadow-sm: 0 10px 26px rgba(0, 0, 0, 0.18);
+    --shadow-md: 0 22px 52px rgba(0, 0, 0, 0.28);
+    --shadow-lg: 0 32px 90px rgba(0, 0, 0, 0.38);
+
+    --radius-sm: 8px;
+    --radius: 12px;
+    --radius-lg: 18px;
+    --radius-xl: 24px;
+
+    --content-width: 1480px;
+    --header-height: 72px;
+
+    /* Django's own admin variables inherit the same system. */
+    --primary: var(--accent);
+    --secondary: var(--surface-3);
+    --primary-fg: #fff;
+    --body-fg: var(--text);
+    --body-bg: var(--canvas);
+    --body-quiet-color: var(--text-muted);
+    --body-loud-color: var(--text);
+    --header-color: var(--text);
+    --header-branding-color: var(--text);
+    --header-bg: var(--canvas-raised);
+    --header-link-color: var(--text-secondary);
+    --breadcrumbs-fg: var(--text-secondary);
+    --breadcrumbs-link-fg: var(--text-secondary);
+    --breadcrumbs-bg: var(--canvas-raised);
+    --link-fg: #aeb7ff;
+    --link-hover-color: #cbd1ff;
+    --link-selected-fg: #d9ddff;
+    --hairline-color: var(--border-soft);
+    --border-color: var(--border);
+    --error-fg: #ff9ca2;
+    --message-success-bg: rgba(var(--success-rgb), 0.1);
+    --message-warning-bg: rgba(var(--warning-rgb), 0.1);
+    --message-error-bg: rgba(var(--danger-rgb), 0.1);
+    --darkened-bg: var(--surface-2);
+    --selected-bg: var(--accent-soft);
+    --selected-row: rgba(var(--accent-rgb), 0.08);
+    --button-fg: #fff;
+    --button-bg: var(--surface-3);
+    --button-hover-bg: var(--surface-4);
+    --default-button-bg: var(--accent-strong);
+    --default-button-hover-bg: #6574f2;
+    --close-button-bg: var(--surface-3);
+    --close-button-hover-bg: var(--surface-4);
+    --delete-button-bg: rgba(var(--danger-rgb), 0.14);
+    --delete-button-hover-bg: rgba(var(--danger-rgb), 0.22);
+    --object-tools-fg: var(--text);
+    --object-tools-bg: var(--surface-3);
+    --object-tools-hover-bg: var(--surface-4);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    min-height: 100%;
+    background: var(--canvas);
+}
+
+body {
+    min-height: 100vh;
+    margin: 0;
+    color: var(--text);
+    background:
+        radial-gradient(circle at 22% -10%, rgba(var(--accent-rgb), 0.09), transparent 31rem),
+        radial-gradient(circle at 92% 8%, rgba(var(--accent-rgb), 0.045), transparent 27rem),
+        var(--canvas);
+    font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+}
+
+body,
+input,
+textarea,
+select,
+button {
+    font-family: inherit;
+}
+
+::selection {
+    color: #fff;
+    background: rgba(var(--accent-rgb), 0.5);
+}
+
+a {
+    color: #aeb7ff;
+    text-decoration-color: rgba(var(--accent-rgb), 0.42);
+    text-underline-offset: 3px;
+}
+
+a:hover,
+a:focus-visible {
+    color: #d9ddff;
+}
+
+button,
+a,
+input,
+select,
+textarea,
+summary {
+    transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, box-shadow 150ms ease, opacity 150ms ease, transform 150ms ease;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+    outline: 2px solid var(--accent-bright);
+    outline-offset: 2px;
+}
+
+.visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+.hidden,
+.hiddenfields {
+    display: none !important;
+}
+
+.skip-to-content-link {
+    position: fixed;
+    z-index: 9999;
+    top: 10px;
+    left: 10px;
+    padding: 10px 14px;
+    color: #fff;
+    background: var(--accent-strong);
+    border-radius: var(--radius-sm);
+    transform: translateY(-150%);
+}
+
+.skip-to-content-link:focus {
+    transform: translateY(0);
+}

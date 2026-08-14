@@ -1,17 +1,20 @@
 {% extends "admin/base_site.html" %}
 {% load i18n %}
 
+{% block title %}{% translate 'Server error' %} | {{ site_title }}{% endblock %}
+{% block content_title %}{% endblock %}
+{% block object-tools %}{% endblock %}
+
 {% block breadcrumbs %}
-<ol class="breadcrumbs">
-<li><a href="{% url 'admin:index' %}">{% translate 'Home' %}</a></li>
-<li aria-current="page">{% translate 'Server error' %}</li>
-</ol>
+<ol class="breadcrumbs"><li><a href="{% url 'admin:index' %}">{% translate 'Dashboard' %}</a></li><li aria-current="page">{% translate 'Server error' %}</li></ol>
 {% endblock %}
 
-{% block title %}{% translate 'Server error (500)' %}{% endblock %}
-
 {% block content %}
-<h1>{% translate 'Server Error <em>(500)</em>' %}</h1>
-<p>{% translate 'There’s been an error. It’s been reported to the site administrators via email and should be fixed shortly. Thanks for your patience.' %}</p>
-
+<div class="admin-error-page">
+    <span class="admin-error-code">500</span>
+    <p class="eyebrow">{% translate 'Server error' %}</p>
+    <h1>{% translate 'Something went wrong.' %}</h1>
+    <p>{% translate 'The request could not be completed. Try again, or return to the recruitment dashboard.' %}</p>
+    <a class="button default" href="{% url 'admin:index' %}">{% translate 'Return to dashboard' %}</a>
+</div>
 {% endblock %}

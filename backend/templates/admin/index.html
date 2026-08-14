@@ -1,64 +1,110 @@
 {% extends "admin/base_site.html" %}
-{% load i18n static admin_filters log %}
+{% load i18n admin_filters log %}
 
 {% block bodyclass %}{{ block.super }} dashboard recruitment-dashboard{% endblock %}
 {% block nav-breadcrumbs %}{% endblock %}
+{% block content_title %}{% endblock %}
+{% block object-tools %}{% endblock %}
 
 {% block content %}
-<div class="dashboard-hero">
-    <div>
+<section class="dashboard-hero">
+    <div class="dashboard-hero-copy">
         <p class="eyebrow">{% translate 'Recruitment overview' %}</p>
         <h1>{% translate 'Recruitment dashboard' %}</h1>
         <p>{% translate 'Create vacancies from the configured role, monitor candidate applications and inspect interview evidence.' %}</p>
+        <div class="dashboard-hero-actions">
+            <a class="button default" href="{% url 'admin:create_job_from_configuration' %}">{% translate 'Create job from configuration' %}</a>
+            <a class="button button-secondary" href="{% url 'admin:interviews_jobapplication_changelist' %}">{% translate 'Applications' %}</a>
+        </div>
     </div>
-    <a class="button default dashboard-create" href="{% url 'admin:create_job_from_configuration' %}">{% translate 'Create job from configuration' %}</a>
-</div>
+    <div class="dashboard-hero-visual" aria-hidden="true">
+        <span class="dashboard-orbit dashboard-orbit-one"></span>
+        <span class="dashboard-orbit dashboard-orbit-two"></span>
+        <span class="dashboard-core">AI</span>
+    </div>
+</section>
 
-<div class="dashboard-stats" aria-label="{% translate 'Recruitment statistics' %}">
-    <a href="{% url 'admin:interviews_job_changelist' %}?status__exact=open" class="dashboard-stat">
-        <span>{% translate 'Open jobs' %}</span><strong>{{ recruitment_stats.open_jobs }}</strong>
-    </a>
-    <a href="{% url 'admin:interviews_jobapplication_changelist' %}" class="dashboard-stat">
-        <span>{% translate 'Applications' %}</span><strong>{{ recruitment_stats.applications }}</strong>
-    </a>
-    <a href="{% url 'admin:interviews_jobapplication_changelist' %}?status__exact=interview_pending" class="dashboard-stat">
-        <span>{% translate 'Interviews pending' %}</span><strong>{{ recruitment_stats.interviews_pending }}</strong>
-    </a>
-    <a href="{% url 'admin:interviews_jobapplication_changelist' %}?status__exact=evaluating" class="dashboard-stat">
-        <span>{% translate 'Evaluating' %}</span><strong>{{ recruitment_stats.interviews_evaluating }}</strong>
-    </a>
-    <a href="{% url 'admin:interviews_humanreviewrequest_changelist' %}" class="dashboard-stat">
-        <span>{% translate 'Review requests' %}</span><strong>{{ recruitment_stats.reviews_requested }}</strong>
-    </a>
-</div>
+<section class="dashboard-overview" aria-labelledby="pipeline-heading">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">{% translate 'Recruitment overview' %}</p>
+            <h2 id="pipeline-heading">{% translate 'Recruitment statistics' %}</h2>
+        </div>
+    </div>
+    <div class="dashboard-metrics">
+        <a href="{% url 'admin:interviews_job_changelist' %}?status__exact=open" class="dashboard-metric">
+            <span class="metric-label">{% translate 'Open jobs' %}</span>
+            <strong>{{ recruitment_stats.open_jobs }}</strong>
+        </a>
+        <a href="{% url 'admin:interviews_jobapplication_changelist' %}" class="dashboard-metric">
+            <span class="metric-label">{% translate 'Applications' %}</span>
+            <strong>{{ recruitment_stats.applications }}</strong>
+        </a>
+        <a href="{% url 'admin:interviews_jobapplication_changelist' %}?status__exact=interview_pending" class="dashboard-metric">
+            <span class="metric-label">{% translate 'Interviews pending' %}</span>
+            <strong>{{ recruitment_stats.interviews_pending }}</strong>
+        </a>
+        <a href="{% url 'admin:interviews_jobapplication_changelist' %}?status__exact=evaluating" class="dashboard-metric">
+            <span class="metric-label">{% translate 'Evaluating' %}</span>
+            <strong>{{ recruitment_stats.interviews_evaluating }}</strong>
+        </a>
+        <a href="{% url 'admin:interviews_humanreviewrequest_changelist' %}" class="dashboard-metric">
+            <span class="metric-label">{% translate 'Review requests' %}</span>
+            <strong>{{ recruitment_stats.reviews_requested }}</strong>
+        </a>
+    </div>
+</section>
 
 <div class="dashboard-grid">
-    <section class="dashboard-panel">
-        <div class="dashboard-panel-heading">
-            <div><p class="eyebrow">{% translate 'Administration' %}</p><h2>{% translate 'Recruitment data' %}</h2></div>
-        </div>
-        <div id="content-main" class="app-list">
-            {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
-        </div>
-    </section>
-
-    <aside class="dashboard-panel dashboard-recent">
-        <div class="dashboard-panel-heading">
-            <div><p class="eyebrow">{% translate 'Activity' %}</p><h2>{% translate 'Recent actions' %}</h2></div>
+    <section class="dashboard-panel dashboard-activity" aria-labelledby="activity-heading">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">{% translate 'Activity' %}</p>
+                <h2 id="activity-heading">{% translate 'Recent actions' %}</h2>
+            </div>
         </div>
         {% get_admin_log 8 as admin_log for_user user %}
         {% if not admin_log %}
-            <p class="empty-state">{% translate 'No recent admin actions.' %}</p>
+            <div class="empty-state">
+                <span class="empty-state-icon" aria-hidden="true"></span>
+                <strong>{% translate 'No recent admin actions.' %}</strong>
+            </div>
         {% else %}
             <ul class="actionlist">
                 {% for entry in admin_log %}
                 <li>
-                    {% if entry.is_deletion or not entry.get_admin_url %}{{ entry.object_repr|to_object_display_value }}{% else %}<a href="{{ entry.get_admin_url }}">{{ entry.object_repr|to_object_display_value }}</a>{% endif %}
-                    {% if entry.content_type %}<span>{{ entry.content_type.name|capfirst }}</span>{% endif %}
+                    <span class="activity-marker{% if entry.is_addition %} is-addition{% elif entry.is_deletion %} is-deletion{% endif %}" aria-hidden="true"></span>
+                    <div class="activity-copy">
+                        {% if entry.is_deletion or not entry.get_admin_url %}
+                            <strong>{{ entry.object_repr|to_object_display_value }}</strong>
+                        {% else %}
+                            <a href="{{ entry.get_admin_url }}">{{ entry.object_repr|to_object_display_value }}</a>
+                        {% endif %}
+                        <span>{% if entry.content_type %}{{ entry.content_type.name|capfirst }} · {% endif %}{{ entry.action_time|timesince }} {% translate 'ago' %}</span>
+                    </div>
                 </li>
                 {% endfor %}
             </ul>
         {% endif %}
+    </section>
+
+    <aside class="dashboard-panel dashboard-operations" aria-labelledby="operations-heading">
+        <div class="section-heading">
+            <div>
+                <p class="eyebrow">{% translate 'Administration' %}</p>
+                <h2 id="operations-heading">{% translate 'Recruitment data' %}</h2>
+            </div>
+        </div>
+        <div class="operations-list">
+            {% for group in admin_navigation %}
+            <section class="operations-group">
+                <h3>{{ group.label }}</h3>
+                {% for item in group.items %}
+                <a href="{{ item.url }}"><span>{{ item.label }}</span><span class="link-arrow" aria-hidden="true">→</span></a>
+                {% endfor %}
+            </section>
+            {% endfor %}
+        </div>
     </aside>
 </div>
 {% endblock %}
