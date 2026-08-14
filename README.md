@@ -58,7 +58,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Smart Turn v3.2 is downloaded from `pipecat-ai/smart-turn-v3` through the Hugging Face cache on first model load. Silero VAD is supplied by `silero-vad`. Qwen3.6 is loaded once through Transformers and quantized to NF4 4-bit weights with BF16 compute by BitsAndBytes.
+Smart Turn v3.2 is downloaded from `pipecat-ai/smart-turn-v3` through the Hugging Face cache on first model load. Silero VAD is supplied by `silero-vad`. Qwen3.6 is loaded once through the text-only `Qwen3_5ForCausalLM` class and quantized to NF4 4-bit weights with BF16 compute by BitsAndBytes; the vision tower is not instantiated.
 
 The inference stack uses PyTorch SDPA. The external `flash-attn` package and vLLM are not required.
 
@@ -127,7 +127,7 @@ GPU 1: Qwen3.6-27B NF4 shard + Qwen3-ASR + Qwen3.5-4B misuse + Smart Turn v3.2
 CPU:   Silero VAD
 ```
 
-Qwen3.6 is shared by interviewing, job metadata and final evaluation. See `docs/MODELS.md` for exact checkpoints and precision.
+Qwen3.6 is shared by interviewing, job metadata and final evaluation. Its balanced device map has a 22 GiB ceiling on each GPU; that is an upper placement limit, not a reservation. See `docs/MODELS.md` for exact checkpoints and precision.
 
 ## Interview content
 

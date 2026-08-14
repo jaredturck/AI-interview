@@ -18,7 +18,7 @@ CPU
   Silero VAD
 ```
 
-The Qwen3.6 placement cap is 10 GiB per GPU. It is intentionally lower than each card's physical capacity so auxiliary weights, KV cache, activations, kernel workspaces and allocator overhead retain headroom.
+The Qwen3.6 placement ceiling is 22 GiB per GPU. It reflects the usable capacity of each 24 GiB RTX 3090 while leaving roughly 2 GiB outside the shared-model placement budget. It is an upper limit only; the balanced text-only NF4 model is expected to occupy substantially less than 22 GiB on either card.
 
 These are placement limits, not claims about exact CUDA peaks. Actual free/allocated/reserved memory must be measured on the target host because PyTorch, ONNX Runtime and qwentts.cpp use separate CUDA allocators.
 
@@ -49,7 +49,7 @@ Transformers models explicitly use `attn_implementation='sdpa'`. No external `fl
 | Qwen3.6 weights | BitsAndBytes NF4 4-bit | Makes the 27B shared model resident beside the realtime models. |
 | Compute dtype | BF16 | Keeps matrix computation and activations at an appropriate Ampere-supported precision. |
 | Nested quantization | Enabled | Reduces 4-bit quantization metadata overhead. |
-| Shared-model placement cap | 10 GiB per GPU | Prevents the shared model from consuming all device capacity. |
+| Shared-model placement ceiling | 22 GiB per GPU | Gives Accelerate a realistic per-card limit while leaving roughly 2 GiB outside the placement budget. |
 | Criterion microbatch | 2 | Bounds simultaneous KV/activation growth during evaluation. |
 | Active inference | Serialized | Avoids interview and evaluation activation peaks overlapping. |
 | CPU weight offload | Not intended | Keeps model execution on the two RTX 3090s. |

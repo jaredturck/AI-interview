@@ -12,7 +12,7 @@ The fixed model stack is defined in `backend/interviews/services/real_models.py`
 | Turn completion | `pipecat-ai/smart-turn-v3` / `smart-turn-v3.2-gpu.onnx` | GPU 1 | FP32 ONNX |
 | Voice activity detection | Silero VAD 6.2.1 | CPU | FP32 JIT |
 
-Qwen3.6 is the only general-purpose language model. The same resident instance handles candidate interviewing, job-title metadata and post-interview evaluation. It is loaded with `load_in_4bit=True`, NF4 quantization, nested/double quantization and BF16 compute.
+Qwen3.6 is the only general-purpose language model. The same resident instance handles candidate interviewing, job-title metadata and post-interview evaluation. It is loaded through the text-only `Qwen3_5ForCausalLM` class with `AutoTokenizer`, so the vision tower is not instantiated. The text weights use `load_in_4bit=True`, NF4 quantization, nested/double quantization and BF16 compute.
 
 ## Resident placement
 
@@ -32,7 +32,7 @@ CPU
   Silero VAD
 ```
 
-The shared Qwen3.6 loader uses a balanced Transformers/Accelerate device map with a 10 GiB placement cap on each GPU. This cap is for Qwen3.6 placement only; it deliberately leaves room for the permanently resident auxiliary models and runtime activations. CPU or disk weight offload is not part of the intended deployment.
+The shared Qwen3.6 loader uses a balanced Transformers/Accelerate device map with a 22 GiB maximum on each GPU. This is an upper placement ceiling, not a request to consume 22 GiB per card; the text-only NF4 model uses only the memory required by its assigned modules. CPU or disk weight offload is not part of the intended deployment.
 
 `RealModelSuite.load_models()` owns all model instances. Do not create additional checkpoint copies in consumers, views or helper modules.
 

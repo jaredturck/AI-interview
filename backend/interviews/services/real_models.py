@@ -4,7 +4,7 @@ import io, re, threading
 
 import soundfile as sf
 import torch
-from transformers import AutoModelForCausalLM, AutoModelForMultimodalLM, AutoProcessor, AutoTokenizer, BitsAndBytesConfig, LogitsProcessorList
+from transformers import AutoModelForCausalLM, AutoModelForMultimodalLM, AutoProcessor, AutoTokenizer, BitsAndBytesConfig, LogitsProcessorList, Qwen3_5ForCausalLM
 
 from interviews.services.choice import ChoiceLogitsProcessor
 from interviews.services.content import EVALUATOR_QUESTION_PROMPT, FINAL_CHOICE_PROMPT, FINAL_OUTPUT_PROMPT, MISUSE_PROMPT
@@ -15,7 +15,7 @@ ASR_MODEL = 'Qwen/Qwen3-ASR-1.7B-hf'
 SHARED_MODEL = 'Qwen/Qwen3.6-27B'
 GUARD_MODEL = 'Qwen/Qwen3Guard-Gen-4B'
 MISUSE_MODEL = 'Qwen/Qwen3.5-4B'
-SHARED_MODEL_MAX_MEMORY = {0: '10GiB', 1: '10GiB'}
+SHARED_MODEL_MAX_MEMORY = {0: '22GiB', 1: '22GiB'}
 EVALUATOR_BATCH_SIZE = 2
 EVALUATOR_QUESTION_MAX_TOKENS = 2048
 EVALUATOR_REASONING_MAX_TOKENS = 4096
@@ -57,9 +57,9 @@ class QwenSharedModel:
             'low_cpu_mem_usage': True,
             'quantization_config': quantization
         }
-        self.processor = AutoProcessor.from_pretrained(SHARED_MODEL)
-        self.processor.tokenizer.padding_side = 'left'
-        self.model = AutoModelForMultimodalLM.from_pretrained(SHARED_MODEL, **model_kwargs)
+        self.tokenizer = AutoTokenizer.from_pretrained(SHARED_MODEL)
+        self.tokenizer.padding_side = 'left'
+        self.model = Qwen3_5ForCausalLM.from_pretrained(SHARED_MODEL, **model_kwargs)
         self.model.eval()
 
     def input_device(self):
@@ -68,15 +68,15 @@ class QwenSharedModel:
 
     def prepare_inputs(self, messages, enable_thinking):
         ''' Apply the Qwen3.6 chat template for one text-only request. '''
-        prompt = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
-        inputs = self.processor(text=[prompt], return_tensors='pt', padding=True)
+        prompt = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
+        inputs = self.tokenizer([prompt], return_tensors='pt', padding=True)
         return inputs.to(self.input_device())
 
     def prepare_batch(self, message_batches, enable_thinking):
         ''' Tokenize a small batch of independent Qwen3.6 evaluator requests with left padding. '''
-        prompts = [self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True,
+        prompts = [self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True,
             enable_thinking=enable_thinking) for messages in message_batches]
-        inputs = self.processor(text=prompts, return_tensors='pt', padding=True)
+        inputs = self.tokenizer(prompts, return_tensors='pt', padding=True)
         return inputs.to(self.input_device())
 
     def generate(self, messages, max_tokens, thinking, temperature, top_p):
@@ -88,7 +88,7 @@ class QwenSharedModel:
                 top_p=top_p, top_k=20, repetition_penalty=1.0)
 
         output = generation[0][inputs['input_ids'].shape[-1]:]
-        text = self.processor.decode(output, skip_special_tokens=True)
+        text = self.tokenizer.decode(output, skip_special_tokens=True)
         return strip_thinking(text)
 
     def generate_batch(self, message_batches, max_tokens, thinking, temperature, top_p):
@@ -100,13 +100,13 @@ class QwenSharedModel:
                 top_p=top_p, top_k=20, repetition_penalty=1.0)
 
         output = generation[:, inputs['input_ids'].shape[-1]:]
-        texts = self.processor.batch_decode(output, skip_special_tokens=True)
+        texts = self.tokenizer.batch_decode(output, skip_special_tokens=True)
         return [strip_thinking(text) for text in texts]
 
     def choice(self, messages, choices):
         ''' Constrain Qwen3.6 output where application logic requires an exact approved decision. '''
         inputs = self.prepare_inputs(messages, False)
-        tokenizer = self.processor.tokenizer
+        tokenizer = self.tokenizer
         choice_token_ids = [tokenizer.encode(choice, add_special_tokens=False) for choice in choices]
         logits_processor = ChoiceLogitsProcessor(inputs['input_ids'].shape[-1], choice_token_ids, tokenizer.eos_token_id)
         max_tokens = max(len(choice) for choice in choice_token_ids) + 1
@@ -225,18 +225,29 @@ class RealModelSuite:
             if self.models_loaded():
                 return
 
-            print('Loading Qwen3-TTS model on GPU 0...', flush=True)
-            self.tts = load_qwen_tts()
-            print('Loading Qwen3-ASR model on GPU 1...', flush=True)
-            self.asr = QwenASRModel()
-            print('Loading Silero VAD and Smart Turn v3.2 on CPU/GPU 1...', flush=True)
-            self.turn_detector = TurnDetector()
-            print('Loading Qwen3Guard model on GPU 0...', flush=True)
-            self.guard_model = QwenGuardModel()
-            print('Loading Qwen3.5-4B misuse model on GPU 1...', flush=True)
-            self.misuse_model = QwenTextModel(MISUSE_MODEL, 'cuda:1')
-            print('Loading shared Qwen3.6-27B NF4 model across GPU 0 + GPU 1...', flush=True)
-            self.shared_model = QwenSharedModel()
+            if self.tts is None:
+                print('Loading Qwen3-TTS model on GPU 0...', flush=True)
+                self.tts = load_qwen_tts()
+
+            if self.asr is None:
+                print('Loading Qwen3-ASR model on GPU 1...', flush=True)
+                self.asr = QwenASRModel()
+
+            if self.turn_detector is None:
+                print('Loading Silero VAD and Smart Turn v3.2 on CPU/GPU 1...', flush=True)
+                self.turn_detector = TurnDetector()
+
+            if self.guard_model is None:
+                print('Loading Qwen3Guard model on GPU 0...', flush=True)
+                self.guard_model = QwenGuardModel()
+
+            if self.misuse_model is None:
+                print('Loading Qwen3.5-4B misuse model on GPU 1...', flush=True)
+                self.misuse_model = QwenTextModel(MISUSE_MODEL, 'cuda:1')
+
+            if self.shared_model is None:
+                print('Loading shared Qwen3.6-27B NF4 model across GPU 0 + GPU 1...', flush=True)
+                self.shared_model = QwenSharedModel()
 
     def models_loaded(self):
         ''' Gate interview and evaluation availability on every required resident model being loaded. '''

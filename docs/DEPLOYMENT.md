@@ -25,7 +25,7 @@ hf download Qwen/Qwen3.5-4B
 hf download pipecat-ai/smart-turn-v3 smart-turn-v3.2-gpu.onnx
 ```
 
-Qwen3.6 is quantized to NF4 by BitsAndBytes when loaded. No separate pre-quantized evaluator checkpoint is required.
+Qwen3.6 is quantized to NF4 by BitsAndBytes when loaded. The application uses the text-only `Qwen3_5ForCausalLM` class with `AutoTokenizer`, so the checkpoint's vision tower is not instantiated. No separate pre-quantized evaluator checkpoint is required.
 
 ## Production shape
 
