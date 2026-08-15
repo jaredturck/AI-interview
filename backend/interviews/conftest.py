@@ -40,7 +40,7 @@ class FakeModelSuite:
 
     def interviewer(self, system_prompt, turns, max_tokens=32):
         ''' Drive opening, follow-up, redirect, rephrase and closing paths with deterministic interviewer text. '''
-        if turns and turns[-1]['text'].startswith('End the interview now'):
+        if (turns and turns[-1]['text'].startswith('End the interview now')) or 'CURRENT CONTROL INSTRUCTION\nEnd the interview now' in system_prompt:
             return 'Thank you for your time today.'
 
         if turns and turns[-1]['text'].startswith('Rephrase the last interviewer question'):
@@ -67,6 +67,10 @@ class FakeModelSuite:
         if count:
             return 'REDIRECT'
 
+        return 'CONTINUE'
+
+    def interview_state(self, *args):
+        ''' Keep normal test interviews running unless a test explicitly overrides the stopping controller. '''
         return 'CONTINUE'
 
     def evaluate_criteria(self, job_description, transcript, criteria):

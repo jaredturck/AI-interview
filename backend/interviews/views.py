@@ -13,7 +13,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
 from interviews.models import ConversationTurn, HumanReviewRequest, InterviewSession, Job, JobApplication
-from interviews.services.interview import INTERVIEW_MAX_MINUTES
+from interviews.services.interview import INTERVIEW_MAX_MINUTES, interview_remaining_seconds
 from interviews.services.runtime import model_runtime
 
 RECRUITMENT_EMAIL = 'recruitment@example.com'
@@ -338,6 +338,8 @@ def interview_status(request, interview_id):
         'interview': serialize_interview_summary(interview),
         'application': {'id': str(interview.application.id), 'status': interview.application.status},
         'job': serialize_job(interview.application.job),
+        'max_minutes': INTERVIEW_MAX_MINUTES,
+        'remaining_seconds': interview_remaining_seconds(interview) if interview.started_at else None,
     })
 
 @require_POST

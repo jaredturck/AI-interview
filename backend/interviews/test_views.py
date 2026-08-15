@@ -1,12 +1,15 @@
 ''' Verify candidate authentication, vacancy application workflow, ownership and human-review HTTP APIs. '''
 
 import json
+from datetime import timedelta
 
 import pytest
 from django.contrib.auth import get_user_model
 from django.test import Client
+from django.utils import timezone
 
 from interviews.models import ConversationTurn, EvaluationAnswer, HumanReviewRequest, InterviewSession, Job, JobApplication
+from interviews.services.interview import INTERVIEW_MAX_MINUTES
 
 User = get_user_model()
 
@@ -111,6 +114,22 @@ def test_application_and_interview_are_private_to_candidate():
     client.force_login(other)
     assert client.get(f'/api/applications/{application.id}/').status_code == 404
     assert client.get(f'/api/interviews/{interview.id}/status/').status_code == 404
+
+@pytest.mark.django_db
+def test_interview_status_exposes_server_authoritative_remaining_time():
+    ''' Verify the live UI can initialize its countdown without trusting the browser clock or hidden recruitment data. '''
+    user = create_user()
+    job = create_job()
+    application = JobApplication.objects.create(user=user, job=job, status='interview_in_progress')
+    interview = InterviewSession.objects.create(application=application, status='active', started_at=timezone.now() - timedelta(minutes=2))
+    client = Client()
+    client.force_login(user)
+    response = client.get(f'/api/interviews/{interview.id}/status/')
+    payload = response.json()
+    assert response.status_code == 200
+    assert payload['max_minutes'] == INTERVIEW_MAX_MINUTES
+    assert INTERVIEW_MAX_MINUTES * 60 - 125 <= payload['remaining_seconds'] <= INTERVIEW_MAX_MINUTES * 60 - 115
+    assert 'essential_requirements' not in payload['job']
 
 @pytest.mark.django_db
 def test_account_lists_candidate_applications_with_jobs():

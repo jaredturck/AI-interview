@@ -43,6 +43,8 @@ export default function useInterview(interview_id: string) {
     const [candidate_pending, set_candidate_pending] = useState(false);
     const [assistant_pending, set_assistant_pending] = useState(false);
     const [loaded, set_loaded] = useState(false);
+    const [remaining_seconds, set_remaining_seconds] = useState<number | null>(null);
+    const [timer_ready, set_timer_ready] = useState(false);
     const websocket_ref = useRef<WebSocket | null>(null);
     const recorder_ref = useRef<MediaRecorder | null>(null);
     const stream_ref = useRef<MediaStream | null>(null);
@@ -63,6 +65,7 @@ export default function useInterview(interview_id: string) {
     const discard_recording_ref = useRef(false);
     const pending_audio_ref = useRef<{buffer: ArrayBuffer; manual: boolean; mime: string}[]>([]);
     const incoming_audio_ref = useRef<IncomingAudioTransfer | null>(null);
+    const deadline_ref = useRef<number | null>(null);
 
     useEffect(() => {
         load_interview();
@@ -104,6 +107,25 @@ export default function useInterview(interview_id: string) {
         return () => window.clearInterval(poll);
     }, [ended, result, status, interview_id]);
 
+    useEffect(() => {
+        if (!timer_ready || ended) {
+            return;
+        }
+
+        const update_timer = () => {
+            const deadline = deadline_ref.current;
+
+            if (deadline === null) {
+                return;
+            }
+
+            set_remaining_seconds(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
+        };
+        update_timer();
+        const timer = window.setInterval(update_timer, 1000);
+        return () => window.clearInterval(timer);
+    }, [timer_ready, ended]);
+
     async function load_interview() {
         set_error('');
 
@@ -132,6 +154,10 @@ export default function useInterview(interview_id: string) {
         set_result(current.interview.result || '');
         set_review_requested(Boolean(current.interview.review_requested));
 
+        if (current.remaining_seconds !== null) {
+            apply_timing(current.remaining_seconds);
+        }
+
         if (TERMINAL_STATUSES.includes(current.interview.status)) {
             set_ended(true);
             set_microphone_setup_complete(true);
@@ -145,6 +171,13 @@ export default function useInterview(interview_id: string) {
         if (role === 'assistant') {
             set_latest_assistant(text);
         }
+    }
+
+    function apply_timing(seconds: number) {
+        const bounded_seconds = Math.max(0, seconds);
+        deadline_ref.current = Date.now() + bounded_seconds * 1000;
+        set_remaining_seconds(bounded_seconds);
+        set_timer_ready(true);
     }
 
     function play_audio(blob: Blob) {
@@ -245,6 +278,8 @@ export default function useInterview(interview_id: string) {
             }
 
             play_audio(new Blob(transfer.chunks, {type: transfer.mime}));
+        } else if (message.type === 'timing') {
+            apply_timing(message.remaining_seconds);
         } else if (message.type === 'history') {
             set_messages(message.turns.map((turn) => ({...turn, id: crypto.randomUUID()})));
             set_candidate_pending(false);
@@ -664,6 +699,7 @@ export default function useInterview(interview_id: string) {
         candidate_pending_ref.current = false;
         pending_audio_ref.current = [];
         incoming_audio_ref.current = null;
+        deadline_ref.current = null;
         websocket_ref.current?.close();
         websocket_ref.current = null;
     }
@@ -671,7 +707,7 @@ export default function useInterview(interview_id: string) {
     return {
         interview_id, job, application_id, messages, status, error, pending_transcript, ended, result, review_requested, speech_speed,
         set_speech_speed, voice_enabled, set_voice_enabled, is_recording, microphone_mode, microphone_active, microphone_setup_complete,
-        microphone_requesting, audio_level, latest_assistant, candidate_pending, assistant_pending, loaded, send_text, enable_open_microphone, use_closed_microphone,
+        microphone_requesting, audio_level, latest_assistant, candidate_pending, assistant_pending, remaining_seconds, loaded, send_text, enable_open_microphone, use_closed_microphone,
         close_open_microphone, start_recording, stop_recording, confirm_transcript, rephrase, need_moment, end_interview, replay, refresh_status,
     };
 }

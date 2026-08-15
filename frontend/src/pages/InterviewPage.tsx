@@ -12,6 +12,12 @@ import Transcript from '../components/Transcript';
 import TranscriptConfirmation from '../components/TranscriptConfirmation';
 import useInterview from '../hooks/useInterview';
 
+function format_countdown(seconds: number) {
+    const minutes = Math.floor(seconds / 60);
+    const remainder = seconds % 60;
+    return `${minutes}:${String(remainder).padStart(2, '0')}`;
+}
+
 export default function InterviewPage() {
     const {t} = useTranslation();
     const {interview_id = ''} = useParams();
@@ -57,6 +63,9 @@ export default function InterviewPage() {
                 </div>
                 <div className="interview-header-actions">
                     <StatusBadge live_status={interview.status} />
+                    {interview.remaining_seconds !== null && <span className="interview-timer">
+                        <span>{t('interview.timeLeft')}</span><strong>{format_countdown(interview.remaining_seconds)}</strong>
+                    </span>}
                     <button type="button" className="mobile-transcript-button" onClick={() => set_transcript_open(!transcript_open)}>
                         {transcript_open ? t('interview.closeTranscript') : t('interview.openTranscript')}
                     </button>

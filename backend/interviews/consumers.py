@@ -11,8 +11,8 @@ from django.utils import timezone
 from interviews.models import InterviewSession
 from interviews.services.audio import decode_browser_audio
 from interviews.services.evaluation import start_evaluation
-from interviews.services.interview import INTERVIEW_MAX_MINUTES, MAX_TEXT_CHARS, add_turn, closing_message, finish_interview, interview_timed_out, \
-    opening_message, process_candidate_text, rephrase_message
+from interviews.services.interview import INTERVIEW_MAX_MINUTES, INTERVIEW_WRAP_UP_MINUTES, MAX_TEXT_CHARS, add_turn, closing_message, finish_interview, \
+    interview_remaining_seconds, interview_timed_out, opening_message, process_candidate_text, rephrase_message
 from interviews.services.runtime import model_runtime
 
 LOGGER = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ MAX_AUDIO_BYTES = 20000000
 AUDIO_CHUNK_BYTES = 256 * 1024
 TURN_COMPLETE_GRACE_SECONDS = 0.5
 TURN_HOLD_SECONDS = 6
-CLOSING_FALLBACK = 'Thank you for your time today. The interview is now complete.'
+CLOSING_FALLBACK = 'Thank you for your time today. The interview is now complete, and your responses will now be evaluated.'
 
 class InterviewConsumer(AsyncWebsocketConsumer):
     ''' Own the authenticated WebSocket lifecycle for one candidate interview. '''
@@ -34,6 +34,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
         self.timeout_task = None
         self.turn_finalize_task = None
         self.turn_lock = asyncio.Lock()
+        self.interview_action_lock = asyncio.Lock()
         self.audio_send_lock = asyncio.Lock()
         self.pending_turn_audio = []
         self.incoming_audio = None
@@ -81,6 +82,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
             await self.finish_without_closing_message()
             return
 
+        await self.send_timing()
         turns = await sync_to_async(self.get_turns)()
         await self.send_json({'type': 'history', 'turns': turns})
 
@@ -378,48 +380,57 @@ class InterviewConsumer(AsyncWebsocketConsumer):
         if not text:
             return
 
-        await self.send_json({'type': 'candidate', 'text': text})
-        await self.send_json({'type': 'status', 'status': 'thinking'})
-        try:
-            result = await sync_to_async(process_candidate_text, thread_sensitive=False)(self.interview, text)
+        async with self.interview_action_lock:
+            if self.finished:
+                return
 
-        except Exception as error:  # noqa: BLE001
-            LOGGER.exception('Interview turn processing failed: %s', error)
-            await self.send_json({'type': 'error', 'code': 'turn_failed',
-                'message': 'The interviewer could not process that turn. Please continue or try again.'})
-            await self.send_json({'type': 'ready'})
-            return
+            await self.send_json({'type': 'candidate', 'text': text})
+            await self.send_json({'type': 'status', 'status': 'thinking'})
+            try:
+                result = await sync_to_async(process_candidate_text, thread_sensitive=False)(self.interview, text)
 
-        if not result['reply']:
-            await self.send_json({'type': 'ready'})
-            return
+            except Exception as error:  # noqa: BLE001
+                LOGGER.exception('Interview turn processing failed: %s', error)
+                await self.send_json({'type': 'error', 'code': 'turn_failed',
+                    'message': 'The interviewer could not process that turn. Please continue or try again.'})
+                await self.send_json({'type': 'ready'})
+                return
 
-        await self.send_interviewer(result['reply'], final=result['finished'])
+            if not result['reply']:
+                await self.send_json({'type': 'ready'})
+                return
 
-        if result['finished']:
-            await self.complete_live_session()
+            await self.send_interviewer(result['reply'], final=result['finished'])
+
+            if result['finished']:
+                await self.complete_live_session()
 
     async def handle_control(self, action):
         ''' Support rephrase, pause and candidate-ended controls without treating them as answer turns. '''
         if action == 'rephrase':
-            await self.send_json({'type': 'status', 'status': 'thinking'})
+            async with self.interview_action_lock:
+                if self.finished:
+                    return
 
-            try:
-                text = await sync_to_async(rephrase_message, thread_sensitive=False)(self.interview)
+                await self.send_json({'type': 'status', 'status': 'thinking'})
 
-            except Exception as error:  # noqa: BLE001
-                LOGGER.exception('Question rephrasing failed: %s', error)
-                await self.send_json({'type': 'error', 'code': 'rephrase_failed',
-                    'message': 'The interviewer could not rephrase that question right now.'})
-                await self.send_json({'type': 'ready'})
-                return
+                try:
+                    text = await sync_to_async(rephrase_message, thread_sensitive=False)(self.interview)
 
-            await sync_to_async(add_turn)(self.interview, 'assistant', text)
-            await self.send_interviewer(text)
+                except Exception as error:  # noqa: BLE001
+                    LOGGER.exception('Question rephrasing failed: %s', error)
+                    await self.send_json({'type': 'error', 'code': 'rephrase_failed',
+                        'message': 'The interviewer could not rephrase that question right now.'})
+                    await self.send_json({'type': 'ready'})
+                    return
+
+                await sync_to_async(add_turn)(self.interview, 'assistant', text)
+                await self.send_interviewer(text)
         elif action == 'moment':
             await self.send_json({'type': 'status', 'status': 'paused'})
         elif action == 'end':
-            await self.finish_with_closing_message()
+            async with self.interview_action_lock:
+                await self.finish_with_closing_message()
 
     async def send_interviewer(self, text, final=False):
         ''' Deliver interviewer text immediately and pair it with best-effort Qwen3-TTS audio. '''
@@ -478,7 +489,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
         await self.complete_live_session()
 
     async def finish_without_closing_message(self):
-        ''' End a resumed interview that already exceeded 30 minutes without generating an extra closing turn. '''
+        ''' End a resumed interview that already exceeded 15 minutes without generating an extra closing turn. '''
         self.finished = True
         await sync_to_async(finish_interview)(self.interview)
         await self.complete_live_session()
@@ -499,7 +510,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
         await self.close(code=1000)
 
     async def interview_timeout(self):
-        ''' Enforce the 30-minute limit while a candidate remains connected. '''
+        ''' Enforce the 15-minute hard limit while a candidate remains connected. '''
         if not self.interview.started_at:
             return
 
@@ -512,8 +523,19 @@ class InterviewConsumer(AsyncWebsocketConsumer):
         except asyncio.CancelledError:
             return
 
-        if not self.finished:
-            await self.finish_with_closing_message()
+        async with self.interview_action_lock:
+            if not self.finished:
+                await self.finish_with_closing_message()
+
+    async def send_timing(self):
+        ''' Send server-authoritative interview timing so the browser countdown does not depend on client clock agreement. '''
+        await self.send_json({
+            'type': 'timing',
+            'remaining_seconds': interview_remaining_seconds(self.interview),
+            'max_minutes': INTERVIEW_MAX_MINUTES,
+            'wrap_up_minutes': INTERVIEW_WRAP_UP_MINUTES,
+            'phase': self.interview.phase,
+        })
 
     async def send_json(self, payload):
         ''' Keep WebSocket control and status messages serialized through one JSON helper. '''

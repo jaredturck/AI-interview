@@ -59,6 +59,8 @@ flowchart LR
 
 The interviewer receives the public description and internal criteria in its system context. Its role is evidence gathering: important claims trigger concrete, role-relevant follow-ups; technical depth follows the experience the candidate actually claims; isolated failure to recall niche syntax or employer-specific trivia is not treated as broad incompetence. The opening question uses a non-persisted internal user instruction so the model receives a valid chat shape without inventing candidate evidence.
 
+Interview timing is server-authoritative. `InterviewSession.phase` persists `main` or `wrap_up`; Qwen receives elapsed/remaining time in hidden context, while a separate constrained stopping decision chooses `CONTINUE`, `WRAP_UP` or `END` based on evidence coverage rather than candidate quality. Python forces wrap-up at 13 minutes and the Channels timeout remains an absolute 15-minute backstop. Entering wrap-up permits at most one final candidate exchange before automatic completion and evaluation.
+
 ## Runtime ownership
 
 ```mermaid

@@ -33,6 +33,7 @@ def parse_evaluation_questions(text):
     return questions
 
 INTERVIEWER_PROMPT = read_prompt('interviewer.txt')
+INTERVIEW_STATE_PROMPT = read_prompt('interview_state.txt')
 MISUSE_PROMPT = read_prompt('misuse.txt')
 EVALUATOR_QUESTION_PROMPT = read_prompt('evaluator_question.txt')
 EVALUATOR_CLASSIFICATION_PROMPT = read_prompt('evaluator_classification.txt')

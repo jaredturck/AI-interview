@@ -12,6 +12,7 @@ from django.test import Client
 from ai_interviewer.asgi import application
 from interviews.consumers import AUDIO_CHUNK_BYTES
 from interviews.models import InterviewSession, Job, JobApplication
+from interviews.services.interview import INTERVIEW_MAX_MINUTES, INTERVIEW_WRAP_UP_MINUTES
 from interviews.services.runtime import model_runtime
 
 User = get_user_model()
@@ -62,8 +63,14 @@ async def send_candidate_audio_transfer(communicator, audio, manual=False):
     await communicator.send_json_to({'type': 'audio_end', 'id': transfer_id})
 
 async def receive_opening(communicator):
-    ''' Consume the standard opening-question sequence including its chunked interviewer audio. '''
+    ''' Consume the standard opening-question sequence including timing and chunked interviewer audio. '''
     assert await communicator.receive_json_from() == {'type': 'status', 'status': 'loading'}
+    timing = await communicator.receive_json_from()
+    assert timing['type'] == 'timing'
+    assert timing['max_minutes'] == INTERVIEW_MAX_MINUTES
+    assert timing['wrap_up_minutes'] == INTERVIEW_WRAP_UP_MINUTES
+    assert timing['phase'] == 'main'
+    assert 0 < timing['remaining_seconds'] <= INTERVIEW_MAX_MINUTES * 60
     assert await communicator.receive_json_from() == {'type': 'history', 'turns': []}
     assert await communicator.receive_json_from() == {'type': 'status', 'status': 'thinking'}
     assert (await communicator.receive_json_from())['type'] == 'assistant'
@@ -91,6 +98,9 @@ async def test_typed_websocket_turn(monkeypatch):
 
     loading = await communicator.receive_json_from()
     assert loading == {'type': 'status', 'status': 'loading'}
+    timing = await communicator.receive_json_from()
+    assert timing['type'] == 'timing'
+    assert timing['max_minutes'] == INTERVIEW_MAX_MINUTES
     history = await communicator.receive_json_from()
     assert history == {'type': 'history', 'turns': []}
     thinking = await communicator.receive_json_from()
@@ -124,6 +134,35 @@ async def test_typed_websocket_turn(monkeypatch):
 
 @pytest.mark.asyncio
 @pytest.mark.django_db(transaction=True)
+async def test_semantic_end_closes_live_session_without_manual_button(monkeypatch):
+    ''' Verify an END stopping decision sends one neutral closing and the existing ended handoff automatically. '''
+    user = await sync_to_async(User.objects.create_user)(username='automatic-end@example.com', email='automatic-end@example.com',
+        password='A-strong-test-password-42')
+    interview = await create_interview(user)
+    client = Client()
+    await sync_to_async(client.force_login)(user)
+    session_cookie = client.cookies['sessionid'].value
+    monkeypatch.setattr('interviews.consumers.start_evaluation', no_evaluation)
+    monkeypatch.setattr(model_runtime.suite, 'interview_state', lambda *args: 'END')
+    headers = [(b'origin', b'http://localhost'), (b'cookie', f'sessionid={session_cookie}'.encode())]
+    communicator = WebsocketCommunicator(application, f'/ws/interviews/{interview.id}/', headers=headers)
+    connected, _ = await communicator.connect()
+    assert connected is True
+    await receive_opening(communicator)
+
+    await communicator.send_json_to({'type': 'text', 'text': 'I think that covers everything.'})
+    assert await communicator.receive_json_from() == {'type': 'candidate', 'text': 'I think that covers everything.'}
+    assert await communicator.receive_json_from() == {'type': 'status', 'status': 'thinking'}
+    closing = await communicator.receive_json_from()
+    assert closing['type'] == 'assistant'
+    assert 'thank you' in closing['text'].lower()
+    assert await communicator.receive_json_from() == {'type': 'status', 'status': 'speaking'}
+    await receive_audio_transfer(communicator)
+    assert await communicator.receive_json_from() == {'type': 'ended'}
+    await communicator.disconnect()
+
+@pytest.mark.asyncio
+@pytest.mark.django_db(transaction=True)
 async def test_interviewer_audio_larger_than_websocket_limit_is_chunked(monkeypatch):
     ''' Verify a logical WAV larger than Daphne's default limit is delivered as bounded ordered messages. '''
     user = await sync_to_async(User.objects.create_user)(username='large-audio@example.com', email='large-audio@example.com',
@@ -141,6 +180,7 @@ async def test_interviewer_audio_larger_than_websocket_limit_is_chunked(monkeypa
     assert connected is True
 
     assert await communicator.receive_json_from() == {'type': 'status', 'status': 'loading'}
+    assert (await communicator.receive_json_from())['type'] == 'timing'
     assert await communicator.receive_json_from() == {'type': 'history', 'turns': []}
     assert await communicator.receive_json_from() == {'type': 'status', 'status': 'thinking'}
     assert (await communicator.receive_json_from())['type'] == 'assistant'
@@ -175,6 +215,7 @@ async def test_candidate_audio_larger_than_websocket_limit_is_reassembled(monkey
     assert connected is True
 
     assert await communicator.receive_json_from() == {'type': 'status', 'status': 'loading'}
+    assert (await communicator.receive_json_from())['type'] == 'timing'
     assert await communicator.receive_json_from() == {'type': 'history', 'turns': []}
     assert await communicator.receive_json_from() == {'type': 'status', 'status': 'thinking'}
     assert (await communicator.receive_json_from())['type'] == 'assistant'

@@ -284,7 +284,7 @@ class InterviewSessionAdmin(ReadOnlyEvidenceAdmin):
     list_display = ('id', 'candidate_email', 'job_title', 'status_badge', 'result', 'started_at', 'ended_at')
     list_filter = ('status', 'result', 'application__job')
     search_fields = ('application__user__email', 'application__job__title', 'id')
-    readonly_fields = ('id', 'application', 'candidate_email', 'job_title', 'confirm_transcript', 'status', 'result',
+    readonly_fields = ('id', 'application', 'candidate_email', 'job_title', 'confirm_transcript', 'phase', 'status', 'result',
         'created_at', 'started_at', 'ended_at')
     inlines = (ConversationTurnInline, EvaluationAnswerInline, HumanReviewRequestInline)
 

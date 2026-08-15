@@ -105,10 +105,15 @@ class InterviewSession(models.Model):
         ('PROGRESS', _('Progress')),
         ('NOT_PROGRESS', _('Not progress')),
     ]
+    PHASE_CHOICES = [
+        ('main', _('Main interview')),
+        ('wrap_up', _('Wrap up')),
+    ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     application = models.OneToOneField(JobApplication, on_delete=models.CASCADE, related_name='interview')
     confirm_transcript = models.BooleanField(default=False)
+    phase = models.CharField(max_length=20, choices=PHASE_CHOICES, default='main')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='created')
     result = models.CharField(max_length=20, choices=RESULT_CHOICES, blank=True)
     started_at = models.DateTimeField(null=True, blank=True)

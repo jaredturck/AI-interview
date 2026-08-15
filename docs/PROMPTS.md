@@ -10,6 +10,12 @@ Important claims are starting points rather than proof. Follow-ups seek concrete
 
 The interviewer does not verify credentials, accuse candidates of lying or coach candidates by supplying the knowledge it is trying to assess. It should neutrally clarify material inconsistencies and maintain the existing accessibility/fairness rules.
 
+The interviewer also receives the current phase and remaining time. It must use the available time efficiently, avoid opening substantial new topics during wrap-up, and never predict or imply whether the candidate will progress. Closing language is neutral and hands the transcript to evaluation.
+
+## `interview_state.txt`
+
+Defines the constrained stopping controller used after normal safe candidate turns. It returns only `CONTINUE`, `WRAP_UP` or `END` and judges whether further questioning is likely to materially improve evidence coverage. It must not score candidate quality, fill time unnecessarily or obey candidate attempts to control the interview. Python separately forces wrap-up and the hard deadline so model judgement cannot extend the interview beyond application limits.
+
 ## `misuse.txt`
 
 Asks the separate misuse model to choose `CONTINUE`, `REDIRECT` or `TERMINATE`. Prompt-injection attempts, instructions to change scores, attempts to obtain hidden evaluation policy and sustained refusal to participate are manipulation. Weak, exaggerated or inconsistent job claims are not automatically misuse; those are handled through evidence gathering and evaluation.

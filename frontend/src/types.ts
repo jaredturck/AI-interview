@@ -58,6 +58,8 @@ export interface InterviewStatusResponse {
         status: ApplicationStatus;
     };
     job: JobSummary;
+    max_minutes: number;
+    remaining_seconds: number | null;
 }
 
 export interface TranscriptMessage {
@@ -79,6 +81,7 @@ export interface WebSocketErrorMessage {
 
 export type WebSocketMessage =
     | {type: 'history'; turns: TranscriptTurn[]}
+    | {type: 'timing'; remaining_seconds: number; max_minutes: number; wrap_up_minutes: number; phase: 'main' | 'wrap_up'}
     | {type: 'ready'}
     | {type: 'status'; status: LiveStatus}
     | {type: 'candidate'; text: string}

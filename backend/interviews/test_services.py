@@ -1,5 +1,6 @@
 ''' Verify evidence-led live interview policy, immutable job snapshots and structured post-interview evaluation. '''
 
+from datetime import timedelta
 from unittest.mock import Mock
 
 import pytest
@@ -8,7 +9,8 @@ from django.utils import timezone
 
 from interviews.models import ConversationTurn, InterviewSession, Job, JobApplication
 from interviews.services.evaluation import evaluate_interview
-from interviews.services.interview import build_system_prompt, opening_message, process_candidate_text, rephrase_message
+from interviews.services.interview import INTERVIEW_MAX_MINUTES, INTERVIEW_WRAP_UP_MINUTES, build_system_prompt, opening_message, \
+    process_candidate_text, rephrase_message
 from interviews.services.runtime import model_runtime
 
 User = get_user_model()
@@ -115,6 +117,9 @@ def test_interviewer_system_prompt_contains_hidden_job_specification(interview):
     assert 'Current site access certification' in prompt
     assert 'EVALUATION CRITERIA' in prompt
     assert 'Evidence of attention to hygiene' in prompt
+    assert 'INTERVIEW STATE' in prompt
+    assert 'Phase: MAIN' in prompt
+    assert f'Maximum duration: {INTERVIEW_MAX_MINUTES} minutes.' in prompt
 
 @pytest.mark.django_db
 def test_opening_message_uses_internal_user_turn_without_persisting_it(interview):
@@ -139,6 +144,58 @@ def test_normal_turn_generates_follow_up(interview):
     assert result['finished'] is False
     assert interview.turns.filter(role='user').count() == 1
     assert interview.turns.filter(role='assistant').count() == 1
+
+@pytest.mark.django_db
+def test_semantic_end_finishes_without_waiting_for_manual_control(interview, monkeypatch):
+    ''' Verify sufficient evidence can end the interview automatically before the hard time limit. '''
+    monkeypatch.setattr(model_runtime.suite, 'interview_state', lambda *args: 'END')
+    result = process_candidate_text(interview, 'I have covered everything I wanted to add.')
+    interview.refresh_from_db()
+    assert result['finished'] is True
+    assert interview.status == 'completed'
+    assert interview.turns.filter(role='assistant').count() == 1
+    assert 'thank you' in result['reply'].lower()
+
+@pytest.mark.django_db
+def test_wrap_up_allows_exactly_one_final_candidate_exchange(interview, monkeypatch):
+    ''' Verify semantic wrap-up persists across turns and the next candidate answer closes the interview automatically. '''
+    state = Mock(return_value='WRAP_UP')
+    monkeypatch.setattr(model_runtime.suite, 'interview_state', state)
+    first = process_candidate_text(interview, 'I can give one more example if that would help.')
+    interview.refresh_from_db()
+    assert first['finished'] is False
+    assert interview.phase == 'wrap_up'
+    assert state.call_count == 1
+
+    second = process_candidate_text(interview, 'That is everything I wanted to add.')
+    interview.refresh_from_db()
+    assert second['finished'] is True
+    assert interview.status == 'completed'
+    assert interview.phase == 'wrap_up'
+    assert state.call_count == 1
+
+@pytest.mark.django_db
+def test_soft_deadline_forces_wrap_up_without_model_override(interview, monkeypatch):
+    ''' Verify Python forces the final phase at 13 minutes even if the semantic controller would otherwise continue. '''
+    interview.started_at = timezone.now() - timedelta(minutes=INTERVIEW_WRAP_UP_MINUTES)
+    interview.save(update_fields=['started_at'])
+    state = Mock(return_value='CONTINUE')
+    monkeypatch.setattr(model_runtime.suite, 'interview_state', state)
+    result = process_candidate_text(interview, 'I can answer another question.')
+    interview.refresh_from_db()
+    assert result['finished'] is False
+    assert interview.phase == 'wrap_up'
+    state.assert_not_called()
+
+@pytest.mark.django_db
+def test_hard_deadline_finishes_interview(interview):
+    ''' Verify candidate input at or beyond the 15-minute hard cap immediately closes the persisted interview. '''
+    interview.started_at = timezone.now() - timedelta(minutes=INTERVIEW_MAX_MINUTES, seconds=1)
+    interview.save(update_fields=['started_at'])
+    result = process_candidate_text(interview, 'One last answer after the deadline.')
+    interview.refresh_from_db()
+    assert result['finished'] is True
+    assert interview.status == 'completed'
 
 @pytest.mark.django_db
 def test_unsafe_turn_is_redirected_generically(interview):

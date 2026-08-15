@@ -10,7 +10,7 @@ from transformers.utils.import_utils import is_causal_conv1d_available, is_flash
 
 from interviews.services.choice import ChoiceLogitsProcessor
 from interviews.services.content import EVALUATOR_CLASSIFICATION_PROMPT, EVALUATOR_QUESTION_PROMPT, FINAL_CHOICE_PROMPT, FINAL_OUTPUT_PROMPT, \
-    MISUSE_PROMPT
+    INTERVIEW_STATE_PROMPT, MISUSE_PROMPT
 from interviews.services.qwen_tts_cpp import QwenTTSModel
 from interviews.services.turn_detection import TurnDetector
 
@@ -362,6 +362,22 @@ class RealModelSuite:
             {'role': 'user', 'content': transcript}
         ]
         return self.misuse_model.choice(messages, ['CONTINUE', 'REDIRECT', 'TERMINATE'])
+
+    def interview_state(self, job_description, essential_requirements, verification_requirements, evaluation_questions, transcript, phase,
+        elapsed_seconds, remaining_seconds):
+        ''' Decide whether evidence gathering should continue, enter one final exchange or end now. '''
+        none_configured = 'None configured.'
+        context = (
+            f'JOB DESCRIPTION\n{job_description}\n\nESSENTIAL REQUIREMENTS\n{essential_requirements or none_configured}\n\n'
+            f'VERIFICATION REQUIREMENTS\n{verification_requirements or none_configured}\n\nEVALUATION CRITERIA\n{evaluation_questions}\n\n'
+            f'INTERVIEW PHASE\n{phase.upper()}\n\nELAPSED SECONDS\n{elapsed_seconds}\n\nREMAINING SECONDS\n{remaining_seconds}\n\n'
+            f'INTERVIEW TRANSCRIPT\n{transcript}'
+        )
+        messages = [
+            {'role': 'system', 'content': INTERVIEW_STATE_PROMPT},
+            {'role': 'user', 'content': context}
+        ]
+        return self.shared_model.choice(messages, ['CONTINUE', 'WRAP_UP', 'END'])
 
     def evaluate_criteria(self, job_description, transcript, criteria):
         ''' Produce deterministic evidence analyses and constrained classifications for every configured criterion. '''

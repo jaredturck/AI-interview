@@ -15,7 +15,7 @@ This executes Django checks, migration drift checks, pytest and a production Typ
 | Ownership | HTTP/WebSocket authentication, cross-account rejection, hidden Job rubric not exposed by candidate APIs. |
 | Job administration | Normal textarea-based creation, required specification validation, immutable specification after first application, normal unused-record deletion. |
 | Sample data | Ten unique sample keys, idempotent seeding, unused reset, used-snapshot reset refusal. |
-| Interview policy | Hidden rubric in system context, opening, normal follow-up, safety redirect, misuse termination, manual end. |
+| Interview policy | Hidden rubric/timing context, opening, normal follow-up, semantic END, one-exchange WRAP_UP, 13-minute soft deadline, 15-minute hard deadline, safety redirect, misuse termination, manual end. |
 | Voice turn-taking | Non-speech discard, incomplete pause hold, resumed speech, accumulated-turn completion, push-to-talk explicit submit, bidirectional chunked large audio. |
 | Transcript UI | Candidate sending indicator, interviewer typing indicator, replacement by real messages. |
 | Evaluation | Structured criterion persistence, constrained classifications, essential hard gate, verification-claim hard gate, holistic binary result, failure state, human review. |
@@ -59,6 +59,11 @@ Cough/background noise -> no candidate message
 Mid-sentence pause -> interviewer waits
 Push-to-talk -> button release submits immediately
 Large TTS/candidate audio -> logical transfer completes without any WebSocket message exceeding 256 KiB
+Live interview -> countdown begins from server-authoritative remaining seconds
+Natural completion -> semantic END closes without candidate pressing End interview
+13-minute threshold -> wrap-up begins and permits at most one final candidate exchange
+15-minute threshold -> live session closes and moves to evaluation
+Interviewer closing -> never predicts or implies progression outcome
 ```
 
 Turn thresholds and timing constants should be tuned from recorded usability tests rather than changed from anecdotal single samples.
