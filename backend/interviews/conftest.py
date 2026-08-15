@@ -57,10 +57,6 @@ class FakeModelSuite:
 
         return 'What responsibilities did you personally handle in that work?'
 
-    def job_metadata(self, description):
-        ''' Provide stable concise vacancy metadata for admin job-creation tests. '''
-        return '{"title": "Commercial Cleaner", "subtitle": "Facilities Team"}'
-
     def misuse(self, transcript):
         ''' Drive redirect and termination paths from repeated cake requests in the test transcript. '''
         count = transcript.lower().count('bake a cake')
@@ -73,10 +69,33 @@ class FakeModelSuite:
 
         return 'CONTINUE'
 
-    def evaluate(self, job_description, transcript, questions):
-        ''' Provide deterministic resident-model evaluation without loading Qwen3.5-9B during tests. '''
-        answers = [f'The transcript provides relevant evidence for: {question}' for question in questions]
-        return {'answers': answers, 'result': 'PROGRESS', 'error': ''}
+    def evaluate_criteria(self, job_description, transcript, criteria):
+        ''' Return one deterministic positive structured assessment for every configured test criterion. '''
+        assessments = []
+
+        for criterion in criteria:
+            criterion_type = criterion['criterion_type']
+            question = criterion['question']
+
+            if criterion_type == 'verification':
+                assessment = 'CLAIMED'
+            elif criterion_type == 'essential':
+                assessment = 'MET'
+            else:
+                assessment = 'POSITIVE'
+            assessments.append({
+                'question_index': criterion['question_index'],
+                'criterion_type': criterion_type,
+                'question': question,
+                'assessment': assessment,
+                'answer': f'The transcript provides relevant evidence for: {question}',
+            })
+
+        return {'assessments': assessments, 'error': ''}
+
+    def final_evaluation(self, job_description, transcript, assessments):
+        ''' Return a stable holistic progression result after application hard gates pass. '''
+        return {'result': 'PROGRESS', 'error': ''}
 
 @pytest.fixture(autouse=True)
 def fake_model_runtime():

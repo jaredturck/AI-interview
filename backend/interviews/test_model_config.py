@@ -7,7 +7,6 @@ import torch
 
 from interviews.services import real_models
 
-
 def test_shared_qwen_loader_uses_text_only_int8_sdpa(monkeypatch):
     ''' Verify Qwen3.5-9B loads as a text-only INT8 model entirely on GPU 0. '''
     tokenizer = Mock()
@@ -35,7 +34,6 @@ def test_shared_qwen_loader_uses_text_only_int8_sdpa(monkeypatch):
     assert kwargs['low_cpu_mem_usage'] is True
     assert quantization.load_in_8bit is True
     assert quantization.load_in_4bit is False
-
 
 def test_partial_preload_does_not_reload_resident_auxiliaries(monkeypatch):
     ''' Verify retrying after a shared-model failure keeps already resident auxiliary model instances. '''
@@ -72,7 +70,6 @@ def test_partial_preload_does_not_reload_resident_auxiliaries(monkeypatch):
     assert misuse_loader.call_count == 1
     assert shared_loader.call_count == 2
 
-
 def test_reliable_placement_and_evaluation_limits(monkeypatch):
     ''' Verify Qwen3.5-9B stays on GPU 0 while auxiliary language models remain on GPU 1. '''
     tokenizer = Mock()
@@ -91,3 +88,26 @@ def test_reliable_placement_and_evaluation_limits(monkeypatch):
     assert real_models.EVALUATOR_BATCH_SIZE == 2
     assert real_models.EVALUATOR_QUESTION_MAX_TOKENS == 512
     assert real_models.EVALUATOR_REASONING_MAX_TOKENS == 768
+
+def test_deterministic_freeform_generation_omits_sampling_parameters(monkeypatch):
+    ''' Verify evaluator reasoning can use greedy decoding without stale temperature or top-p sampling arguments. '''
+    shared = object.__new__(real_models.QwenSharedModel)
+    shared.model = Mock()
+    shared.tokenizer = Mock()
+    inputs = {
+        'input_ids': torch.tensor([[1, 2]]),
+        'attention_mask': torch.tensor([[1, 1]]),
+    }
+    shared.model.generate.return_value = torch.tensor([[1, 2, 3]])
+    shared.tokenizer.decode.return_value = 'evidence assessment'
+    monkeypatch.setattr(shared, 'prepare_inputs', Mock(return_value=inputs))
+    monkeypatch.setattr(shared, 'input_device', Mock(return_value=torch.device('cpu')))
+    monkeypatch.setattr(shared, 'log_generation', Mock())
+
+    result = shared.generate([{'role': 'user', 'content': 'test'}], max_tokens=32, thinking=False, do_sample=False)
+    kwargs = shared.model.generate.call_args.kwargs
+    assert result == 'evidence assessment'
+    assert kwargs['do_sample'] is False
+    assert 'temperature' not in kwargs
+    assert 'top_p' not in kwargs
+    assert 'top_k' not in kwargs

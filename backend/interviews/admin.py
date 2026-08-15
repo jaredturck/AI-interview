@@ -1,17 +1,49 @@
-''' Provide the recruitment admin site, job workflow and read-only candidate interview evidence. '''
+''' Provide the recruitment admin site, editable job specifications and read-only candidate interview evidence. '''
 
-from django.contrib import admin, messages
+from django import forms
+from django.contrib import admin
 from django.contrib.auth.admin import GroupAdmin, UserAdmin
 from django.contrib.auth.models import Group, User
-from django.http import HttpResponseRedirect
-from django.template.response import TemplateResponse
-from django.urls import path, reverse
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
-from interviews.models import ConversationTurn, EvaluationAnswer, HumanReviewRequest, InterviewSession, Job, JobApplication
-from interviews.services.jobs import create_job_from_configuration
+from interviews.models import ConversationTurn, EvaluationAnswer, HumanReviewRequest, InterviewSession, Job, JobApplication, non_empty_lines
+
+class JobAdminForm(forms.ModelForm):
+    ''' Present recruitment specifications as readable staff-authored text areas with criterion validation. '''
+    class Meta:
+        model = Job
+        fields = '__all__'
+        widgets = {
+            'description': forms.Textarea(attrs={'rows': 18}),
+            'essential_requirements': forms.Textarea(attrs={'rows': 10}),
+            'verification_requirements': forms.Textarea(attrs={'rows': 7}),
+            'evaluation_questions': forms.Textarea(attrs={'rows': 12}),
+        }
+        help_texts = {
+            'description': _('Candidate-facing role description. Describe the real work, responsibilities, environment and relevant technologies or professional context.'),
+            'essential_requirements': _('One interview-assessable hard requirement per line. Every requirement must be demonstrated for the candidate to progress.'),
+            'verification_requirements': _('One externally verifiable requirement per line, such as professional registration. '
+                'The interview records claims only; it does not verify credentials.'),
+            'evaluation_questions': _('One broader evidence criterion per line. These guide the interviewer and final evaluation without acting as automatic hard gates.'),
+        }
+
+    def clean(self):
+        ''' Require enough authored evidence criteria while allowing locked historical snapshots to change status. '''
+        cleaned_data = super().clean()
+
+        if 'description' in self.fields and not str(cleaned_data.get('description') or '').strip():
+            self.add_error('description', _('Enter a job description.'))
+
+        if 'essential_requirements' in self.fields and not non_empty_lines(str(cleaned_data.get('essential_requirements') or '')):
+            self.add_error('essential_requirements', _('Enter at least one essential requirement.'))
+
+        if 'evaluation_questions' in self.fields and not non_empty_lines(str(cleaned_data.get('evaluation_questions') or '')):
+            self.add_error('evaluation_questions', _('Enter at least one evaluation criterion.'))
+
+        return cleaned_data
 
 class RecruitmentAdminSite(admin.AdminSite):
     ''' Present Django administration as a focused internal recruitment console. '''
@@ -20,12 +52,6 @@ class RecruitmentAdminSite(admin.AdminSite):
     index_title = _('Recruitment dashboard')
     index_template = 'admin/index.html'
     enable_nav_sidebar = False
-
-    def get_urls(self):
-        ''' Add the agreed staff-only job creation workflow beside normal Django admin routes. '''
-        urls = super().get_urls()
-        custom_urls = [path('jobs/create-from-configuration/', self.admin_view(self.create_job_view), name='create_job_from_configuration')]
-        return custom_urls + urls
 
     def each_context(self, request):
         ''' Add recruitment counts used by the custom dashboard and navigation chrome. '''
@@ -52,7 +78,7 @@ class RecruitmentAdminSite(admin.AdminSite):
             {
                 'label': _('Recruitment'),
                 'items': [
-                    {'label': _('Create job'), 'url': reverse('admin:create_job_from_configuration')},
+                    {'label': _('Create job'), 'url': reverse('admin:interviews_job_add') if request.user.has_perm('interviews.add_job') else ''},
                     {'label': _('Jobs'), 'model': models.get(('interviews', 'job'))},
                     {'label': _('Job applications'), 'model': models.get(('interviews', 'jobapplication'))},
                 ]
@@ -105,24 +131,6 @@ class RecruitmentAdminSite(admin.AdminSite):
 
         return navigation
 
-    def create_job_view(self, request):
-        ''' Confirm and execute creation of one open Job snapshot from the current configuration files. '''
-        if request.method == 'POST':
-            job, error = create_job_from_configuration()
-
-            if error:
-                messages.error(request, error)
-            else:
-                messages.success(request, _('Job "%(title)s" was created and opened for applications.') % {'title': job.title})
-                return HttpResponseRedirect(reverse('admin:interviews_job_change', args=[job.id]))
-
-        context = {
-            **self.each_context(request),
-            'title': _('Create job from configuration'),
-            'opts': Job._meta,
-        }
-        return TemplateResponse(request, 'admin/interviews/create_job.html', context)
-
 recruitment_admin_site = RecruitmentAdminSite(name='admin')
 
 class ReadOnlyEvidenceAdmin(admin.ModelAdmin):
@@ -143,10 +151,10 @@ class ConversationTurnInline(admin.TabularInline):
         return False
 
 class EvaluationAnswerInline(admin.TabularInline):
-    ''' Keep criterion assessments visible beside their interview without allowing staff to alter evaluator evidence. '''
+    ''' Keep structured criterion assessments visible beside their interview without allowing staff to alter evaluator evidence. '''
     model = EvaluationAnswer
     extra = 0
-    readonly_fields = ('question_index', 'question', 'answer', 'created_at')
+    readonly_fields = ('question_index', 'criterion_type', 'question', 'assessment', 'answer', 'created_at')
     can_delete = False
 
     def has_add_permission(self, request, obj=None):
@@ -165,20 +173,46 @@ class HumanReviewRequestInline(admin.StackedInline):
         return False
 
 class JobAdmin(admin.ModelAdmin):
-    ''' Let staff inspect immutable Job snapshots and explicitly open or close candidate applications. '''
-    list_display = ('title', 'subtitle', 'status_badge', 'application_count', 'interview_count', 'opened_at', 'closed_at')
-    list_filter = ('status', 'opened_at', 'closed_at')
-    search_fields = ('title', 'subtitle', 'description')
-    readonly_fields = ('id', 'title', 'subtitle', 'description', 'evaluation_questions', 'status', 'created_at', 'opened_at', 'closed_at')
+    ''' Let staff author vacancies directly while locking recruitment specifications once applications exist. '''
+    form = JobAdminForm
+    list_display = ('title', 'sample_badge', 'status_badge', 'application_count', 'interview_count', 'opened_at', 'closed_at')
+    list_filter = ('is_sample', 'status', 'opened_at', 'closed_at')
+    search_fields = ('title', 'subtitle', 'description', 'essential_requirements', 'evaluation_questions')
+    readonly_fields = ('id', 'is_sample', 'sample_key', 'created_at', 'opened_at', 'closed_at')
     actions = ('open_jobs', 'close_jobs')
+    fieldsets = (
+        (None, {'fields': ('id', 'title', 'subtitle', 'description')}),
+        (_('Interview specification'), {'fields': ('essential_requirements', 'verification_requirements', 'evaluation_questions')}),
+        (_('Vacancy state'), {'fields': ('status', 'is_sample', 'sample_key', 'created_at', 'opened_at', 'closed_at')}),
+    )
 
-    def has_add_permission(self, request):
-        ''' Route staff through Create job from configuration instead of manual snapshot entry. '''
-        return False
+    def get_readonly_fields(self, request, obj=None):
+        ''' Freeze recruitment content after the first application while leaving vacancy status manageable. '''
+        readonly = list(self.readonly_fields)
 
-    def has_delete_permission(self, request, obj=None):
-        ''' Preserve historical recruitment configuration referenced by candidate applications. '''
-        return False
+        if obj and obj.applications.exists():
+            readonly.extend(['title', 'subtitle', 'description', 'essential_requirements', 'verification_requirements', 'evaluation_questions'])
+
+        return readonly
+
+    def save_model(self, request, obj, form, change):
+        ''' Keep open/closed timestamps aligned when staff change vacancy status through the normal form. '''
+        previous_status = Job.objects.filter(pk=obj.pk).values_list('status', flat=True).first() if change else None
+
+        if obj.status == 'open' and previous_status != 'open':
+            obj.opened_at = timezone.now()
+            obj.closed_at = None
+        elif obj.status == 'closed' and previous_status != 'closed':
+            obj.closed_at = timezone.now()
+
+        super().save_model(request, obj, form, change)
+
+    @admin.display(description=_('Type'), ordering='is_sample')
+    def sample_badge(self, obj):
+        ''' Make seeded demonstration vacancies immediately distinguishable from normal recruitment data. '''
+        label = _('Sample') if obj.is_sample else _('Normal')
+        css_class = 'sample' if obj.is_sample else 'normal'
+        return format_html('<span class="status-badge status-{}">{}</span>', css_class, label)
 
     @admin.display(description=_('Status'), ordering='status')
     def status_badge(self, obj):
@@ -277,10 +311,11 @@ class ConversationTurnAdmin(ReadOnlyEvidenceAdmin):
     readonly_fields = ('interview', 'role', 'text', 'created_at')
 
 class EvaluationAnswerAdmin(ReadOnlyEvidenceAdmin):
-    ''' Let staff inspect stored per-criterion evaluator assessments without editing them. '''
-    list_display = ('interview', 'question_index', 'created_at')
+    ''' Let staff inspect structured per-criterion evaluator assessments without editing them. '''
+    list_display = ('interview', 'question_index', 'criterion_type', 'assessment', 'created_at')
+    list_filter = ('criterion_type', 'assessment')
     search_fields = ('interview__application__user__email', 'interview__application__job__title', 'question', 'answer')
-    readonly_fields = ('interview', 'question_index', 'question', 'answer', 'created_at')
+    readonly_fields = ('interview', 'question_index', 'criterion_type', 'question', 'assessment', 'answer', 'created_at')
 
 class HumanReviewRequestAdmin(ReadOnlyEvidenceAdmin):
     ''' Let staff find candidate-requested human reviews by interview, vacancy or candidate email address. '''

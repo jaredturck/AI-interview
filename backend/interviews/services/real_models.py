@@ -4,11 +4,13 @@ import io, re, threading, time
 
 import soundfile as sf
 import torch
-from transformers import AutoModelForCausalLM, AutoModelForMultimodalLM, AutoProcessor, AutoTokenizer, BitsAndBytesConfig, LogitsProcessorList, Qwen3_5ForCausalLM
+from transformers import AutoModelForCausalLM, AutoModelForMultimodalLM, AutoProcessor, AutoTokenizer, BitsAndBytesConfig, LogitsProcessorList, \
+    Qwen3_5ForCausalLM
 from transformers.utils.import_utils import is_causal_conv1d_available, is_flash_linear_attention_available
 
 from interviews.services.choice import ChoiceLogitsProcessor
-from interviews.services.content import EVALUATOR_QUESTION_PROMPT, FINAL_CHOICE_PROMPT, FINAL_OUTPUT_PROMPT, MISUSE_PROMPT
+from interviews.services.content import EVALUATOR_CLASSIFICATION_PROMPT, EVALUATOR_QUESTION_PROMPT, FINAL_CHOICE_PROMPT, FINAL_OUTPUT_PROMPT, \
+    MISUSE_PROMPT
 from interviews.services.qwen_tts_cpp import QwenTTSModel
 from interviews.services.turn_detection import TurnDetector
 
@@ -59,7 +61,7 @@ class GenerationTimer:
         return scores
 
 class QwenSharedModel:
-    ''' Serve one permanently resident Qwen3.5-9B instance for interviewing, job metadata and final evaluation. '''
+    ''' Serve one permanently resident Qwen3.5-9B instance for interviewing and final evaluation. '''
     def __init__(self):
         ''' Load Qwen3.5-9B as INT8 weights with FP16 compute entirely on GPU 0. '''
         quantization = BitsAndBytesConfig(load_in_8bit=True)
@@ -110,28 +112,44 @@ class QwenSharedModel:
         inputs = self.tokenizer(prompts, return_tensors='pt', padding=True)
         return inputs.to(self.input_device())
 
-    def generate(self, messages, max_tokens, thinking, temperature, top_p):
-        ''' Generate one free-form Qwen3.5-9B response for interviewer, metadata or evaluator reasoning. '''
+    def generate(self, messages, max_tokens, thinking, temperature=0.7, top_p=0.8, do_sample=True):
+        ''' Generate one free-form Qwen3.5-9B response with sampling controlled by the caller's role. '''
         inputs = self.prepare_inputs(messages, thinking)
         timer = GenerationTimer(self.input_device())
+        generation_kwargs = {
+            'max_new_tokens': max_tokens,
+            'do_sample': do_sample,
+            'repetition_penalty': 1.0,
+            'logits_processor': LogitsProcessorList([timer])
+        }
+
+        if do_sample:
+            generation_kwargs.update({'temperature': temperature, 'top_p': top_p, 'top_k': 20})
 
         with torch.inference_mode():
-            generation = self.model.generate(**inputs, max_new_tokens=max_tokens, do_sample=True, temperature=temperature,
-                top_p=top_p, top_k=20, repetition_penalty=1.0, logits_processor=LogitsProcessorList([timer]))
+            generation = self.model.generate(**inputs, **generation_kwargs)
 
         self.log_generation(timer, inputs, generation, 1, 'generation')
         output = generation[0][inputs['input_ids'].shape[-1]:]
         text = self.tokenizer.decode(output, skip_special_tokens=True)
         return strip_thinking(text)
 
-    def generate_batch(self, message_batches, max_tokens, thinking, temperature, top_p):
+    def generate_batch(self, message_batches, max_tokens, thinking, temperature=0.2, top_p=0.8, do_sample=True):
         ''' Generate an evaluator microbatch while keeping the shared model and auxiliary stack resident. '''
         inputs = self.prepare_batch(message_batches, thinking)
         timer = GenerationTimer(self.input_device())
+        generation_kwargs = {
+            'max_new_tokens': max_tokens,
+            'do_sample': do_sample,
+            'repetition_penalty': 1.0,
+            'logits_processor': LogitsProcessorList([timer])
+        }
+
+        if do_sample:
+            generation_kwargs.update({'temperature': temperature, 'top_p': top_p, 'top_k': 20})
 
         with torch.inference_mode():
-            generation = self.model.generate(**inputs, max_new_tokens=max_tokens, do_sample=True, temperature=temperature,
-                top_p=top_p, top_k=20, repetition_penalty=1.0, logits_processor=LogitsProcessorList([timer]))
+            generation = self.model.generate(**inputs, **generation_kwargs)
 
         self.log_generation(timer, inputs, generation, len(message_batches), 'evaluation batch')
         output = generation[:, inputs['input_ids'].shape[-1]:]
@@ -345,12 +363,20 @@ class RealModelSuite:
         ]
         return self.misuse_model.choice(messages, ['CONTINUE', 'REDIRECT', 'TERMINATE'])
 
-    def evaluate(self, job_description, transcript, questions):
-        ''' Evaluate every criterion and final decision with the same resident Qwen3.5-9B model used for interviewing. '''
-        common_context = f'JOB DESCRIPTION\n{job_description}\n\nINTERVIEW TRANSCRIPT\n{transcript}\n\nCRITERION\n'
-        question_messages = [evaluator_messages(EVALUATOR_QUESTION_PROMPT, common_context + question) for question in questions]
-        answers = []
+    def evaluate_criteria(self, job_description, transcript, criteria):
+        ''' Produce deterministic evidence analyses and constrained classifications for every configured criterion. '''
+        contexts = []
 
+        for criterion in criteria:
+            criterion_type = criterion['criterion_type'].upper()
+            question = criterion['question']
+            contexts.append(
+                f'JOB DESCRIPTION\n{job_description}\n\nINTERVIEW TRANSCRIPT\n{transcript}\n\n'
+                f'CRITERION TYPE\n{criterion_type}\n\nCRITERION\n{question}'
+            )
+
+        question_messages = [evaluator_messages(EVALUATOR_QUESTION_PROMPT, context) for context in contexts]
+        answers = []
         total_batches = (len(question_messages) + EVALUATOR_BATCH_SIZE - 1) // EVALUATOR_BATCH_SIZE
 
         for start in range(0, len(question_messages), EVALUATOR_BATCH_SIZE):
@@ -358,29 +384,70 @@ class RealModelSuite:
             batch_number = start // EVALUATOR_BATCH_SIZE + 1
             started = time.perf_counter()
             print(f'Evaluation batch {batch_number}/{total_batches} started ({len(batch)} criteria).', flush=True)
-            batch_answers = self.shared_model.generate_batch(batch, max_tokens=EVALUATOR_QUESTION_MAX_TOKENS, thinking=False,
-                temperature=0.2, top_p=0.8)
+            batch_answers = self.shared_model.generate_batch(batch, max_tokens=EVALUATOR_QUESTION_MAX_TOKENS, thinking=False, do_sample=False)
             answers.extend(batch_answers)
             elapsed = time.perf_counter() - started
             print(f'Evaluation batch {batch_number}/{total_batches} finished in {elapsed:.1f}s; '
-                f'{len(answers)}/{len(questions)} criteria complete.', flush=True)
+                f'{len(answers)}/{len(criteria)} criteria complete.', flush=True)
 
-        if len(answers) != len(questions) or any(not answer for answer in answers):
-            return {'answers': answers, 'result': '', 'error': 'Qwen3.5-9B returned an incomplete criterion batch.'}
+        if len(answers) != len(criteria) or any(not answer for answer in answers):
+            return {'assessments': [], 'error': 'Qwen3.5-9B returned an incomplete criterion batch.'}
 
-        assessments = '\n\n'.join(f'{index + 1}. {question}\nAssessment: {answers[index]}' for index, question in enumerate(questions))
-        final_context = f'JOB DESCRIPTION\n{job_description}\n\nINTERVIEW TRANSCRIPT\n{transcript}\n\nCRITERION ASSESSMENTS\n{assessments}'
+        assessments = []
+
+        for index, criterion in enumerate(criteria):
+            criterion_type = criterion['criterion_type']
+            question = criterion['question']
+            if criterion_type == 'verification':
+                choices = ['CLAIMED', 'NOT_CLAIMED', 'UNCLEAR']
+            elif criterion_type == 'essential':
+                choices = ['MET', 'PARTIALLY_MET', 'NOT_MET', 'INSUFFICIENT_EVIDENCE', 'CONTRADICTORY_EVIDENCE']
+            else:
+                choices = ['POSITIVE', 'MIXED', 'NEGATIVE', 'INSUFFICIENT_EVIDENCE', 'CONTRADICTORY_EVIDENCE']
+            classification_context = (
+                f'CRITERION TYPE\n{criterion_type.upper()}\n\nCRITERION\n{question}\n\n'
+                f'EVIDENCE ASSESSMENT\n{answers[index]}'
+            )
+            assessment = self.shared_model.choice(evaluator_messages(EVALUATOR_CLASSIFICATION_PROMPT, classification_context), choices)
+
+            if not assessment:
+                return {'assessments': assessments, 'error': 'Qwen3.5-9B returned an invalid criterion classification.'}
+
+            assessments.append({
+                'question_index': criterion['question_index'],
+                'criterion_type': criterion_type,
+                'question': question,
+                'assessment': assessment,
+                'answer': answers[index],
+            })
+
+        return {'assessments': assessments, 'error': ''}
+
+    def final_evaluation(self, job_description, transcript, assessments):
+        ''' Make the holistic final decision after application code has enforced hard recruitment requirements. '''
+        assessment_parts = []
+
+        for item in assessments:
+            number = item['question_index'] + 1
+            criterion_type = item['criterion_type'].upper()
+            question = item['question']
+            assessment = item['assessment']
+            answer = item['answer']
+            assessment_parts.append(f'{number}. [{criterion_type}] {question}\nClassification: {assessment}\nAssessment: {answer}')
+
+        assessment_text = '\n\n'.join(assessment_parts)
+        final_context = f'JOB DESCRIPTION\n{job_description}\n\nINTERVIEW TRANSCRIPT\n{transcript}\n\nCRITERION ASSESSMENTS\n{assessment_text}'
         reasoning_messages = evaluator_messages(FINAL_CHOICE_PROMPT, final_context)
-        decision_analysis = self.shared_model.generate(reasoning_messages, max_tokens=EVALUATOR_REASONING_MAX_TOKENS, thinking=False,
-            temperature=0.2, top_p=0.8)
+        decision_analysis = self.shared_model.generate(reasoning_messages, max_tokens=EVALUATOR_REASONING_MAX_TOKENS, thinking=False, do_sample=False)
 
         if not decision_analysis:
-            return {'answers': answers, 'result': '', 'error': 'Qwen3.5-9B returned no final evaluation reasoning.'}
+            return {'result': '', 'error': 'Qwen3.5-9B returned no final evaluation reasoning.'}
 
         choice_context = f'{final_context}\n\nFINAL DECISION ANALYSIS\n{decision_analysis}'
         result = self.shared_model.choice(evaluator_messages(FINAL_OUTPUT_PROMPT, choice_context), ['PROGRESS', 'NOT_PROGRESS'])
 
         if result not in ['PROGRESS', 'NOT_PROGRESS']:
-            return {'answers': answers, 'result': '', 'error': 'Qwen3.5-9B returned an invalid final evaluation decision.'}
+            return {'result': '', 'error': 'Qwen3.5-9B returned an invalid final evaluation decision.'}
 
-        return {'answers': answers, 'result': result, 'error': ''}
+        return {'result': result, 'error': ''}
+

@@ -4,7 +4,7 @@ The fixed model stack is defined in `backend/interviews/services/real_models.py`
 
 | Purpose | Model/source | Device | Runtime precision |
 | --- | --- | --- | --- |
-| Interviewer + job metadata + final evaluator | `Qwen/Qwen3.5-9B` | GPU 0 | BitsAndBytes INT8 weights, FP16 compute |
+| Interviewer + final evaluator | `Qwen/Qwen3.5-9B` | GPU 0 | BitsAndBytes INT8 weights, FP16 compute |
 | Text-to-speech | `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice` via qwentts.cpp | GPU 0 | BF16 GGUF |
 | Content safety | `Qwen/Qwen3Guard-Gen-4B` | GPU 1 | INT8 weights, FP16 activations |
 | Speech recognition | `Qwen/Qwen3-ASR-1.7B-hf` | GPU 1 | BF16 |

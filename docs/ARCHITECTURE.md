@@ -17,9 +17,10 @@ flowchart LR
 | --- | --- |
 | React | Candidate routing, microphone/media state, transcript UI and accessibility controls. |
 | Django JSON APIs | Authentication, jobs, applications, interview setup/status and review requests. |
+| Django Admin | Staff-authored vacancy specifications and review of recruitment evidence. |
 | Channels | One live interview connection, audio turn state and model orchestration. |
 | Model runtime | Serialized inference ownership over one permanently resident dual-GPU model suite. |
-| Database | Recruitment state, confirmed transcript text, criterion assessments and outcomes. |
+| Database | Recruitment state, immutable Job specifications, confirmed transcript text, structured criterion assessments and outcomes. |
 
 Django does not render candidate pages. Production serves the React SPA and proxies `/api`, `/ws` and `/admin` to Django.
 
@@ -28,14 +29,18 @@ Django does not render candidate pages. Production serves the React SPA and prox
 ```mermaid
 flowchart TD
     User[Django User] --> Application[JobApplication]
-    Job[Job] --> Application
+    Job[Job specification] --> Application
     Application --> Interview[InterviewSession]
     Interview --> Turns[ConversationTurn]
     Interview --> Answers[EvaluationAnswer]
     Interview --> Review[HumanReviewRequest]
 ```
 
-`Job` is an immutable recruitment snapshot containing candidate-facing metadata, the authored description and evaluation rubric. Updating `config/` affects new jobs only.
+`Job` is the recruitment specification and source of truth. Staff author its public description, interview-assessable essential requirements, externally verifiable prerequisites and broader evaluation criteria directly in Django Admin. Once any application exists, recruitment-content fields become read-only so every candidate linked to the Job is assessed against the same snapshot. `JobApplication.job` uses `PROTECT`, so a Job with historical applications cannot be deleted accidentally.
+
+Optional demonstration vacancies are source-controlled in `backend/interviews/sample_jobs.py` and inserted by `seed_sample_jobs`. The old `config/` job files remain only for historical migration compatibility and are not part of normal vacancy creation.
+
+Candidate HTTP responses contain the public Job description but deliberately omit the hidden recruitment rubric and sample metadata.
 
 ## Live interview
 
@@ -43,15 +48,16 @@ Typed input enters interview policy directly. Voice input first passes the turn-
 
 ```mermaid
 flowchart LR
+    Spec[Hidden Job specification] --> Interviewer[Qwen3.5-9B interviewer]
     Input[Confirmed candidate text] --> GuardIn[Qwen3Guard]
     GuardIn --> Misuse[Qwen3.5-4B misuse]
-    Misuse --> Interviewer[Qwen3.5-9B shared model]
+    Misuse --> Interviewer
     Interviewer --> GuardOut[Qwen3Guard]
     GuardOut --> Text[Assistant transcript]
     GuardOut --> TTS[Qwen3-TTS WAV]
 ```
 
-The opening question uses a non-persisted internal user instruction so the model receives a valid chat shape without inventing candidate evidence.
+The interviewer receives the public description and internal criteria in its system context. Its role is evidence gathering: important claims trigger concrete, role-relevant follow-ups; technical depth follows the experience the candidate actually claims; isolated failure to recall niche syntax or employer-specific trivia is not treated as broad incompetence. The opening question uses a non-persisted internal user instruction so the model receives a valid chat shape without inventing candidate evidence.
 
 ## Runtime ownership
 
@@ -70,17 +76,21 @@ All models remain loaded in every state. `ModelRuntime` only serializes active i
 
 ```mermaid
 flowchart LR
-    Input[Job + transcript + criteria] --> Batch[Criterion microbatches]
-    Batch --> Qwen[Resident Qwen3.5-9B INT8]
-    Qwen --> Answers[EvaluationAnswer rows]
-    Answers --> Reason[Final reasoning]
+    Input[Job + transcript + ordered criteria] --> Batch[Deterministic evidence-analysis microbatches]
+    Batch --> Classify[Constrained criterion classification]
+    Classify --> Answers[EvaluationAnswer rows]
+    Answers --> Gate{Python hard gates pass?}
+    Gate -->|No| Reject[NOT_PROGRESS]
+    Gate -->|Yes| Reason[Deterministic holistic reasoning]
     Reason --> Choice[Constrained PROGRESS / NOT_PROGRESS]
 ```
 
-The evaluator uses Transformers directly. Criteria are independent and processed in small batches to bound dynamic VRAM while the auxiliary stack remains resident. The final decision still depends on all completed criterion assessments. Inference failure becomes `evaluation_failed`; it never fabricates a recruitment outcome.
+Criteria are flattened in the order `essential -> verification -> evaluation` and each stored answer records its criterion type, constrained assessment and evidence analysis. Essential requirements must classify `MET`. Verification requirements are deliberately limited to `CLAIMED`, `NOT_CLAIMED` or `UNCLEAR`; the language model never represents a candidate statement as independent credential verification. Missing hard gates force `NOT_PROGRESS` in application code before holistic model judgement runs.
+
+Broader evaluation criteria remain evidence for the final first-stage decision rather than automatic pass/fail points. Free-form evaluation reasoning uses deterministic decoding; exact classifications and final outcomes use constrained choices. Inference failure becomes `evaluation_failed`; it never fabricates a recruitment outcome.
 
 ## Persistence and privacy boundary
 
-Persisted: accounts, jobs, applications, interview state, confirmed transcript text, evaluation answers, outcome and review requests.
+Persisted: accounts, jobs, applications, interview state, confirmed transcript text, structured evaluation answers, outcome and review requests.
 
 Not persisted: raw microphone audio, temporary transcript typing indicators, model chain-of-thought.

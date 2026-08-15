@@ -1,22 +1,30 @@
 # Prompts
 
-Prompts are deliberately short, role-neutral and stored under `prompts/`. Occupation-specific content belongs in the Job description and evaluation rubric, not generic application prompts.
+Prompts are role-neutral and stored under `prompts/`. Occupation-specific responsibilities and evidence requirements belong in each immutable `Job` specification.
 
 ## `interviewer.txt`
 
-Defines a friendly adaptive first-stage interviewer. It gathers job-relevant evidence from the linked Job description without assuming a technical occupation or embedding example questions.
+Defines an adaptive evidence-gathering first-stage interviewer. The system context includes the Job description, essential requirements, externally verifiable prerequisites and broader evaluation criteria.
+
+Important claims are starting points rather than proof. Follow-ups seek concrete examples, personal contribution, domain-relevant detail and reasoning. Difficulty can increase to establish depth, but the interviewer must not escalate indefinitely until the candidate fails. It must not use obscure syntax, rare terminology, employer-specific conventions or trivia as proxies for broad competence, and it should test the underlying concept when a narrow recall question is missed.
+
+The interviewer does not verify credentials, accuse candidates of lying or coach candidates by supplying the knowledge it is trying to assess. It should neutrally clarify material inconsistencies and maintain the existing accessibility/fairness rules.
 
 ## `misuse.txt`
 
-Asks the separate misuse model to choose `CONTINUE`, `REDIRECT` or `TERMINATE`. It is forgiving of isolated confusion/tangents and terminates only sustained clear misuse.
+Asks the separate misuse model to choose `CONTINUE`, `REDIRECT` or `TERMINATE`. Prompt-injection attempts, instructions to change scores, attempts to obtain hidden evaluation policy and sustained refusal to participate are manipulation. Weak, exaggerated or inconsistent job claims are not automatically misuse; those are handled through evidence gathering and evaluation.
 
 ## `evaluator_question.txt`
 
-Used once for every criterion stored with the Job. Each call assesses job-relevant evidence while retaining the complete Job description and transcript.
+Produces one evidence analysis for every stored criterion. It distinguishes unsupported claims from demonstrated knowledge, gives greater weight to coherent examples and reasoning under follow-up, and considers the whole relevant evidence rather than one isolated mistake. Exact syntax or terminology has limited weight unless exact recall is genuinely required by the Job.
+
+## `evaluator_classification.txt`
+
+Maps each evidence analysis to a constrained classification. Essential requirements use `MET`, `PARTIALLY_MET`, `NOT_MET`, `INSUFFICIENT_EVIDENCE` or `CONTRADICTORY_EVIDENCE`. Broader evaluation questions use directional `POSITIVE`, `MIXED`, `NEGATIVE`, `INSUFFICIENT_EVIDENCE` or `CONTRADICTORY_EVIDENCE` labels so negatively phrased questions are not misread as literal `MET` conditions. Externally verifiable requirements use only `CLAIMED`, `NOT_CLAIMED` or `UNCLEAR` so the model cannot imply that a credential was independently verified.
 
 ## `final_choice.txt`
 
-Runs final reasoning over the original evidence and all completed criterion assessments without assuming a particular occupation.
+Runs deterministic holistic reasoning only after Python has enforced essential and verification gates. It evaluates the body of evidence, does not reward confidence or repeated unsupported claims, and does not reject a candidate merely for one niche knowledge gap when broader competence is well supported.
 
 ## `final_output.txt`
 

@@ -7,6 +7,18 @@ from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+def non_empty_lines(text):
+    ''' Return trimmed non-empty lines from staff-authored recruitment criteria. '''
+    lines = []
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+
+        if line:
+            lines.append(line)
+
+    return lines
+
 class Job(models.Model):
     ''' Preserve one immutable recruitment configuration snapshot and its candidate-facing metadata. '''
     STATUS_CHOICES = [
@@ -18,7 +30,11 @@ class Job(models.Model):
     title = models.CharField(max_length=120)
     subtitle = models.CharField(max_length=160, blank=True)
     description = models.TextField()
+    essential_requirements = models.TextField(blank=True, default='')
+    verification_requirements = models.TextField(blank=True, default='')
     evaluation_questions = models.TextField()
+    is_sample = models.BooleanField(default=False, db_index=True)
+    sample_key = models.SlugField(max_length=80, unique=True, null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
     created_at = models.DateTimeField(auto_now_add=True)
     opened_at = models.DateTimeField(default=timezone.now)
@@ -34,17 +50,17 @@ class Job(models.Model):
         ''' Identify jobs by their concise candidate-facing title. '''
         return self.title
 
+    def essential_requirement_list(self):
+        ''' Return interview-assessable hard requirements as ordered non-empty lines. '''
+        return non_empty_lines(self.essential_requirements)
+
+    def verification_requirement_list(self):
+        ''' Return externally verifiable requirements as ordered non-empty lines. '''
+        return non_empty_lines(self.verification_requirements)
+
     def evaluation_question_list(self):
         ''' Return the stored evaluation rubric as ordered non-empty criterion lines. '''
-        questions = []
-
-        for raw_line in self.evaluation_questions.splitlines():
-            line = raw_line.strip()
-
-            if line:
-                questions.append(line)
-
-        return questions
+        return non_empty_lines(self.evaluation_questions)
 
 class JobApplication(models.Model):
     ''' Link one candidate to one vacancy and track progress through its AI interview stage. '''
@@ -128,10 +144,32 @@ class ConversationTurn(models.Model):
         return f'{self.role}: {self.text[:60]}'
 
 class EvaluationAnswer(models.Model):
-    ''' Preserve the Qwen3.5-9B assessment for one configured criterion as auditable evaluation evidence. '''
+    ''' Preserve one structured Qwen3.5-9B criterion assessment as auditable recruitment evidence. '''
+    CRITERION_TYPE_CHOICES = [
+        ('essential', _('Essential requirement')),
+        ('verification', _('Verification requirement')),
+        ('evaluation', _('Evaluation criterion')),
+    ]
+    ASSESSMENT_CHOICES = [
+        ('', _('Legacy / not classified')),
+        ('MET', _('Met')),
+        ('PARTIALLY_MET', _('Partially met')),
+        ('NOT_MET', _('Not met')),
+        ('INSUFFICIENT_EVIDENCE', _('Insufficient evidence')),
+        ('CONTRADICTORY_EVIDENCE', _('Contradictory evidence')),
+        ('POSITIVE', _('Positive evidence')),
+        ('MIXED', _('Mixed evidence')),
+        ('NEGATIVE', _('Negative evidence')),
+        ('CLAIMED', _('Claimed')),
+        ('NOT_CLAIMED', _('Not claimed')),
+        ('UNCLEAR', _('Unclear')),
+    ]
+
     interview = models.ForeignKey(InterviewSession, on_delete=models.CASCADE, related_name='evaluation_answers')
     question_index = models.PositiveIntegerField()
+    criterion_type = models.CharField(max_length=20, choices=CRITERION_TYPE_CHOICES, default='evaluation')
     question = models.TextField()
+    assessment = models.CharField(max_length=30, choices=ASSESSMENT_CHOICES, blank=True, default='')
     answer = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 

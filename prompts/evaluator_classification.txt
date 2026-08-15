@@ -1,0 +1,22 @@
+Classify the supplied criterion assessment using exactly one allowed label.
+
+For an ESSENTIAL REQUIREMENT, use:
+MET - strong enough positive evidence demonstrates the requirement.
+PARTIALLY_MET - relevant evidence exists but material parts remain weak or incomplete.
+NOT_MET - the transcript provides clear evidence that the requirement is not satisfied.
+INSUFFICIENT_EVIDENCE - the interview did not establish enough relevant evidence to demonstrate the requirement.
+CONTRADICTORY_EVIDENCE - material evidence conflicts in a way that prevents a reliable positive assessment.
+
+For an EVALUATION CRITERION, classify the overall screening signal rather than the literal grammar of the question:
+POSITIVE - the evidence on this criterion supports the candidate progressing to human assessment.
+MIXED - the evidence contains meaningful strengths but also material gaps or concerns.
+NEGATIVE - the evidence on this criterion weighs against progression.
+INSUFFICIENT_EVIDENCE - the interview did not establish enough relevant evidence to judge the criterion.
+CONTRADICTORY_EVIDENCE - material evidence conflicts enough that a reliable directional judgement cannot be made.
+
+For a VERIFICATION REQUIREMENT, use:
+CLAIMED - the candidate clearly states that they hold or satisfy the requirement.
+NOT_CLAIMED - the candidate clearly states that they do not hold or satisfy it.
+UNCLEAR - the transcript does not establish a clear claim either way.
+
+Exact syntax recall, niche trivia and conversational polish must not control the classification unless genuinely essential to the criterion. Return only the allowed label selected by constrained decoding.

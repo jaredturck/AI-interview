@@ -17,6 +17,7 @@ def create_user(email='candidate@example.com', password='A-strong-test-password-
 def create_job(status='open'):
     ''' Create a role-neutral Job snapshot for candidate API tests. '''
     return Job.objects.create(title='Commercial Cleaner', subtitle='Facilities Team', description='Clean commercial facilities.',
+        essential_requirements='Demonstrates safe working practices', verification_requirements='Current site access certification',
         evaluation_questions='Reliability evidence\nSafe working evidence', status=status)
 
 @pytest.mark.django_db
@@ -55,6 +56,22 @@ def test_job_listing_contains_only_open_jobs():
     response = client.get('/api/jobs/')
     assert response.status_code == 200
     assert [item['id'] for item in response.json()['jobs']] == [str(open_job.id)]
+
+@pytest.mark.django_db
+def test_job_detail_does_not_expose_hidden_recruitment_rubric():
+    ''' Verify candidate APIs expose the public job description without leaking internal evidence or verification criteria. '''
+    user = create_user()
+    job = create_job()
+    client = Client()
+    client.force_login(user)
+    response = client.get(f'/api/jobs/{job.id}/')
+    payload = response.json()['job']
+    assert response.status_code == 200
+    assert payload['description'] == job.description
+    assert 'essential_requirements' not in payload
+    assert 'verification_requirements' not in payload
+    assert 'evaluation_questions' not in payload
+    assert 'sample_key' not in payload
 
 @pytest.mark.django_db
 def test_candidate_can_apply_once_and_start_application_interview():

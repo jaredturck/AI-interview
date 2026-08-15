@@ -11,9 +11,11 @@
     <div class="dashboard-hero-copy">
         <p class="eyebrow">{% translate 'Recruitment overview' %}</p>
         <h1>{% translate 'Recruitment dashboard' %}</h1>
-        <p>{% translate 'Create vacancies from the configured role, monitor candidate applications and inspect interview evidence.' %}</p>
+        <p>{% translate 'Author vacancies directly, monitor candidate applications and inspect interview evidence.' %}</p>
         <div class="dashboard-hero-actions">
-            <a class="button default" href="{% url 'admin:create_job_from_configuration' %}">{% translate 'Create job from configuration' %}</a>
+            {% if perms.interviews.add_job %}
+            <a class="button default" href="{% url 'admin:interviews_job_add' %}">{% translate 'Create job' %}</a>
+            {% endif %}
             <a class="button button-secondary" href="{% url 'admin:interviews_jobapplication_changelist' %}">{% translate 'Applications' %}</a>
         </div>
     </div>

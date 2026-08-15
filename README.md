@@ -20,7 +20,7 @@ Voice turn-taking is context-aware rather than `silence == finished`: Silero rej
 
 ```text
 backend/        Django, Channels, persistence and model orchestration
-config/         Job description and evaluation criteria used for new jobs
+config/         Historical migration seed files retained for old-database compatibility
 docs/           Architecture, models, voice, deployment, security and style
 frontend/       React/TypeScript candidate application
 prompts/        Interviewer, misuse and evaluation prompts
@@ -93,6 +93,14 @@ npm install
 python backend/manage.py migrate
 ```
 
+Optional research-backed demonstration jobs:
+
+```bash
+python backend/manage.py seed_sample_jobs
+```
+
+The command is idempotent. `--reset` restores only unused sample vacancies; any Job with an application remains an immutable recruitment snapshot. See `docs/SAMPLE_JOBS.md`.
+
 Optional admin account:
 
 ```bash
@@ -127,16 +135,21 @@ GPU 1: Qwen3-ASR + Qwen3Guard + Qwen3.5-4B misuse + Smart Turn v3.2
 CPU:   Silero VAD
 ```
 
-Qwen3.5-9B is shared by interviewing, job metadata and final evaluation and is kept entirely on GPU 0 to avoid cross-GPU layer transfers. Its Gated DeltaNet layers use Flash Linear Attention plus causal-conv1d when those optimized packages are installed; full-attention layers continue through PyTorch SDPA. See `docs/MODELS.md` for exact checkpoints and precision.
+Qwen3.5-9B is shared by interviewing and final evaluation and is kept entirely on GPU 0 to avoid cross-GPU layer transfers. Its Gated DeltaNet layers use Flash Linear Attention plus causal-conv1d when those optimized packages are installed; full-attention layers continue through PyTorch SDPA. See `docs/MODELS.md` for exact checkpoints and precision.
 
 ## Interview content
 
-New jobs snapshot the current files:
+Staff author new vacancies directly in Django Admin. Each `Job` stores the candidate-facing description plus three internal evidence sections:
 
 ```text
-config/job_description.md
-config/evaluation_questions.txt
+essential_requirements       interview-assessable hard gates
+verification_requirements    credentials/prerequisites the interview can only record as claimed
+evaluation_questions         broader evidence criteria for holistic review
 ```
+
+Once the first candidate applies, the recruitment specification becomes read-only so later interviews cannot silently use different criteria under the same Job record. Candidate APIs expose the public job description but not the internal rubric.
+
+The built-in sample vacancies live in `backend/interviews/sample_jobs.py` and can be inserted with `python backend/manage.py seed_sample_jobs`. The legacy `config/` files remain only because historical migrations use them when reconstructing old database schemas from scratch.
 
 Prompts:
 
@@ -144,11 +157,12 @@ Prompts:
 prompts/interviewer.txt
 prompts/misuse.txt
 prompts/evaluator_question.txt
+prompts/evaluator_classification.txt
 prompts/final_choice.txt
 prompts/final_output.txt
 ```
 
-Changing these files does not mutate already-created `Job` snapshots.
+The interviewer sees the hidden Job rubric and gathers evidence through role-relevant follow-ups. Evaluation stores constrained criterion classifications, Python enforces mandatory gates, and only then does Qwen make the holistic `PROGRESS` / `NOT_PROGRESS` decision.
 
 ## Voice behaviour
 

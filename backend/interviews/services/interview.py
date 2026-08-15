@@ -15,8 +15,16 @@ MAX_TEXT_CHARS = 12000
 SAFE_FALLBACK = 'I can\'t help with that request. Let\'s return to the interview. Could you tell me more about your relevant experience?'
 
 def build_system_prompt(interview, temporary_instruction=''):
-    ''' Combine interviewer policy and the linked job snapshot with any temporary instruction needed for the current turn. '''
-    parts = [INTERVIEWER_PROMPT, f'Job description:\n{interview.application.job.description}']
+    ''' Combine interviewer policy and the complete hidden recruitment specification for the linked immutable Job. '''
+    job = interview.application.job
+    none_configured = 'None configured.'
+    parts = [
+        INTERVIEWER_PROMPT,
+        f'JOB DESCRIPTION\n{job.description}',
+        f'ESSENTIAL REQUIREMENTS\n{job.essential_requirements or none_configured}',
+        f'REQUIREMENTS REQUIRING EXTERNAL VERIFICATION\n{job.verification_requirements or none_configured}',
+        f'EVALUATION CRITERIA\n{job.evaluation_questions}',
+    ]
 
     if temporary_instruction:
         parts.append(temporary_instruction)
@@ -40,8 +48,8 @@ def generate_interviewer_reply(interview, candidate_text='', temporary_instructi
     return SAFE_FALLBACK if response_safety == 'Unsafe' else reply
 
 def opening_message(interview):
-    ''' Start the adaptive interview with a Qwen3.5-9B question grounded in the linked job description. '''
-    instruction = 'Begin the interview with one relevant opening question based on the job description.'
+    ''' Start the adaptive interview with a question grounded in the linked recruitment specification. '''
+    instruction = 'Begin the interview with one relevant opening question. Start gathering evidence for the most important role requirements.'
     return generate_interviewer_reply(interview, internal_user_message=instruction)
 
 def closing_message(interview):
