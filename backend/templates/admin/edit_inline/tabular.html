@@ -28,7 +28,7 @@
                                 {% if field.help_text %}<span class="help-tooltip" title="{{ field.help_text|striptags }}" aria-label="{{ field.help_text|striptags }}">?</span>{% endif %}
                             </th>
                             {% endfor %}
-                            <th>{% if inline_admin_formset.formset.can_delete and inline_admin_formset.has_delete_permission %}{% translate 'Delete?' %}{% endif %}</th>
+                            {% if inline_admin_formset.formset.can_delete and inline_admin_formset.has_delete_permission %}<th>{% translate 'Delete?' %}</th>{% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -57,7 +57,7 @@
                                     {% endfor %}
                                 {% endfor %}
                             {% endfor %}
-                            <td class="delete">{% if inline_admin_formset.formset.can_delete and inline_admin_formset.has_delete_permission and inline_admin_form.original %}{{ inline_admin_form.deletion_field.field }}{% endif %}</td>
+                            {% if inline_admin_formset.formset.can_delete and inline_admin_formset.has_delete_permission %}<td class="delete">{% if inline_admin_form.original %}{{ inline_admin_form.deletion_field.field }}{% endif %}</td>{% endif %}
                         </tr>
                     {% endfor %}
                     </tbody>

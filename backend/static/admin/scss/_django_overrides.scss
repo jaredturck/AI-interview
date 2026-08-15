@@ -1,0 +1,538 @@
+/* Django admin integration -----------------------------------------------
+ *
+ * recruitment_admin.css is intentionally loaded after Django's base,
+ * responsive, forms and changelist styles. These selectors mirror the
+ * higher-specificity stock rules that otherwise survive a broad theme
+ * selector and produce the cramped/broken layouts seen in the admin.
+ */
+
+/* Django base.css sets #container min-width: 980px and .dashboard #content
+ * width: 600px. The custom shell is responsive and must own both dimensions. */
+#container {
+    min-width: 0;
+}
+
+#content,
+.dashboard #content,
+.admin-content-shell,
+.admin-breadcrumbs {
+    width: 100%;
+    max-width: none;
+}
+
+/* Match the stock form-default selectors that otherwise force 13px controls
+ * and paragraph text even after the body baseline has been raised. */
+input,
+textarea,
+select,
+.form-row,
+.form-row p {
+    font-size: var(--font-size-base);
+}
+
+form .button {
+    font-size: var(--font-size-small);
+}
+
+.module h2,
+.module caption,
+.inline-group h2 {
+    font-size: var(--font-size-small);
+}
+
+ul.errorlist li,
+#content-related h4 {
+    font-size: var(--font-size-small);
+}
+
+/* Match Django's ol.breadcrumbs selector instead of relying on the weaker
+ * .breadcrumbs class selector. */
+ol.breadcrumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    color: var(--text-muted);
+    background: transparent;
+}
+
+ol.breadcrumbs li {
+    display: inline-flex;
+    align-items: center;
+    padding: 0;
+    font-size: 14px;
+}
+
+/* Django base.css targets #user-tools and #logout-form button directly and
+ * makes both tiny/uppercase. Match those IDs so the custom account UI wins
+ * without an !important specificity arms race. */
+#user-tools {
+    float: none;
+    margin: 0 0 0 auto;
+    padding: 0;
+    font-size: 14px;
+    letter-spacing: normal;
+    text-align: left;
+    text-transform: none;
+}
+
+#header a:focus,
+#header a:hover {
+    text-decoration: none;
+}
+
+#user-tools .admin-account-popover a {
+    border-bottom: 0;
+}
+
+#logout-form button {
+    min-height: 42px;
+    margin: 0;
+    padding: 0 12px;
+    color: #ff9ea4;
+    background: transparent;
+    border: 0;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: normal;
+    text-transform: none;
+}
+
+#logout-form button:hover,
+#logout-form button:active {
+    margin-bottom: 0;
+}
+
+/* Django's .object-tools a:link/.object-tools a:visited selector is more
+ * specific than a plain .object-tools a theme rule. Reset the stock float,
+ * uppercase treatment and icon backgrounds at the same specificity. */
+.object-tools a,
+.object-tools a:link,
+.object-tools a:visited {
+    display: inline-flex;
+    float: none;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 16px;
+    color: var(--text);
+    background-color: var(--surface-3);
+    background-image: none;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: normal;
+    line-height: 1;
+    text-decoration: none;
+    text-transform: none;
+}
+
+.object-tools li + li {
+    margin-left: 0;
+}
+
+.object-tools a.addlink,
+.object-tools a.viewsitelink,
+.object-tools a.historylink {
+    padding-left: 16px;
+    padding-right: 16px;
+    background-image: none;
+}
+
+.object-tools a.addlink,
+.object-tools a.addlink:link,
+.object-tools a.addlink:visited {
+    color: #fff;
+    background: linear-gradient(180deg, #7583ff 0%, var(--accent-strong) 100%);
+    border-color: rgba(var(--accent-rgb), 0.5);
+}
+
+/* The stock forms stylesheet is built around floated 160px labels and
+ * margin-left offsets. Our fieldset template is a stacked grid, so remove
+ * those legacy alignment rules using selectors at least as specific. */
+.admin-fieldset.aligned label {
+    float: none;
+    width: auto;
+    min-width: 0;
+    padding: 0;
+}
+
+.admin-fieldset.aligned .field-control > label,
+.admin-fieldset.aligned .field-control > label.required {
+    display: block;
+    padding: 0;
+}
+
+.admin-fieldset.aligned label:not(.vCheckboxLabel)::after {
+    display: none;
+    content: none;
+}
+
+.admin-fieldset.aligned .form-row > div,
+.admin-fieldset.aligned .form-row > .field-control,
+.admin-fieldset.aligned .field-control > label + p,
+.admin-fieldset.aligned .field-control > label + div.help,
+.admin-fieldset.aligned .field-control > label + div.readonly {
+    margin-left: 0;
+}
+
+.admin-fieldset.aligned .fieldBox {
+    float: none;
+    margin: 0;
+}
+
+form .admin-fieldset.aligned .radiolist {
+    margin: 3px 0 0;
+    padding: 0;
+}
+
+form .admin-fieldset.aligned ul {
+    margin-left: 0;
+}
+
+form .admin-fieldset.aligned .help ul {
+    margin: 6px 0 0;
+    padding-left: 17px;
+}
+
+.aligned .readonly,
+.admin-fieldset.aligned .readonly {
+    width: 100%;
+    max-width: none;
+    min-height: 44px;
+    margin: 0;
+    padding: 11px 14px;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.55;
+}
+
+/* forms.css constrains large text fields in .colM/.colMS layouts. Those
+ * column classes describe the stock admin shell, not the custom field grid. */
+.colM .admin-fieldset.aligned .vLargeTextField,
+.colMS .admin-fieldset.aligned .vLargeTextField,
+.admin-fieldset.aligned .vLargeTextField,
+.admin-fieldset.aligned .vXMLLargeTextField {
+    width: 100%;
+    max-width: none;
+}
+
+/* Stock tabular-inline CSS reserves special widths for its original/delete
+ * columns. Evidence is read-only here, so let the semantic table size columns
+ * from content and prevent one-character wrapping of dates/IDs. */
+.inline-group .tabular table,
+.inline-group .tabular .inline-table-wrapper table {
+    width: 100%;
+    table-layout: auto;
+}
+
+.inline-group .tabular th,
+.inline-group .tabular td,
+.inline-group .tabular td.original,
+.inline-group .tabular th.original {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    white-space: normal;
+    overflow-wrap: normal;
+    word-break: normal;
+}
+
+.inline-group .tabular th.column-question_index,
+.inline-group .tabular td.field-question_index,
+.inline-group .tabular th.column-created_at,
+.inline-group .tabular td.field-created_at {
+    white-space: nowrap;
+}
+
+/* forms.css gives saved tabular-inline rows 2em top padding and forces the
+ * original-object cell to zero width. The custom evidence table renders its
+ * own row controls, so those stock accommodations are actively harmful. */
+.inline-group .tabular tr.has_original td {
+    padding-top: 16px;
+}
+
+.inline-group .tabular tr td.original {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    padding: 16px 14px;
+    position: static;
+}
+
+.inline-group .tabular th.original {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    padding: 12px 14px;
+}
+
+.inline-group .tabular td.original .inline-row-object {
+    position: static;
+    margin: 0;
+    padding: 0;
+}
+
+/* Changelists -------------------------------------------------------------
+ * changelists.css uses #changelist and #changelist-filter ID selectors for
+ * layout, filters, actions, table headers and pagination. Those selectors
+ * outrank the component classes above even though this bundle loads last.
+ * Match the stock selector shape here so the custom template owns its layout
+ * without resorting to !important declarations or arbitrary column widths.
+ */
+#changelist {
+    display: block;
+    width: 100%;
+}
+
+#changelist #toolbar {
+    flex: 1 1 auto;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+}
+
+#changelist #toolbar form {
+    margin: 0;
+    padding: 0;
+}
+
+#changelist #toolbar form input[type="search"],
+#changelist #toolbar form #searchbar {
+    height: auto;
+    min-height: 46px;
+    margin: 0;
+    padding: 11px 14px 11px 40px;
+    font-size: 16px;
+}
+
+#changelist #toolbar form .search-submit,
+#changelist #toolbar form input[type="submit"] {
+    width: auto;
+    height: auto;
+    min-height: 46px;
+    margin: 0;
+    padding: 0 16px;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+#changelist-filter.admin-filter-panel {
+    position: relative;
+    flex: 0 0 auto;
+    order: initial;
+    width: auto;
+    margin: 0;
+    background: transparent;
+    border: 0;
+}
+
+#changelist-filter.admin-filter-panel > summary {
+    margin: 0;
+}
+
+#changelist-filter details > summary::before,
+#changelist-filter details[open] > summary::before {
+    content: none;
+}
+
+#changelist-filter .filter-panel-heading h2 {
+    margin: 0;
+    padding: 0;
+    color: var(--text);
+    background: transparent;
+    border: 0;
+    font-size: 16px;
+    font-weight: 730;
+    letter-spacing: -0.02em;
+    text-transform: none;
+}
+
+#changelist-filter .admin-filter-group > summary {
+    margin: 0 0 9px;
+    padding: 4px 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 750;
+}
+
+#changelist-filter .admin-filter-group ul,
+#changelist-filter .admin-filter-group li,
+#changelist-filter .admin-filter-group li.selected {
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+#changelist-filter .admin-filter-group ul {
+    display: grid;
+    gap: 2px;
+}
+
+#changelist-filter .admin-filter-group li a {
+    display: flex;
+    min-height: 30px;
+    padding: 4px 8px;
+    word-break: normal;
+}
+
+#changelist .actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    width: 100%;
+    min-height: 58px;
+    margin: 0;
+    padding: 10px 16px;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.012);
+    border: 0;
+    border-bottom: 1px solid var(--border-soft);
+    line-height: normal;
+}
+
+#changelist .actions label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+#changelist .actions select {
+    width: auto;
+    min-width: 0;
+    height: auto;
+    min-height: 42px;
+    margin: 0;
+    padding: 9px 34px 9px 12px;
+    color: var(--text);
+    background-color: var(--surface-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+#changelist .actions .button {
+    width: auto;
+    height: auto;
+    min-width: 0;
+    min-height: 42px;
+    margin: 0;
+    padding: 0 16px;
+    color: var(--text);
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+#changelist .actions span.all,
+#changelist .actions span.action-counter,
+#changelist .actions span.clear,
+#changelist .actions span.question {
+    margin: 0;
+    font-size: 14px;
+}
+
+#changelist #result_list {
+    width: 100%;
+    table-layout: auto;
+}
+
+#changelist #result_list thead th {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    padding: 13px 14px;
+    vertical-align: middle;
+    white-space: normal;
+}
+
+#changelist #result_list thead th .text span,
+#changelist #result_list thead th .text a {
+    padding: 0;
+}
+
+#changelist #result_list thead th.sorted .text {
+    padding-right: 0;
+}
+
+#changelist #result_list thead th.sorted .sortoptions {
+    display: inline-flex;
+    float: none;
+    align-items: center;
+    gap: 4px;
+    margin-left: 7px;
+    padding: 0;
+}
+
+#changelist #result_list thead th.action-checkbox-column,
+#changelist #result_list tbody td.action-checkbox {
+    width: 42px;
+    min-width: 42px;
+    max-width: 42px;
+}
+
+#changelist #result_list tbody th,
+#changelist #result_list tbody td {
+    min-width: 0;
+    max-width: none;
+    padding: 14px;
+    vertical-align: top;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: normal;
+}
+
+#changelist .paginator {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 0;
+    padding: 0;
+    color: var(--text-muted);
+    background: transparent;
+    border: 0;
+    font-size: 14px;
+    line-height: normal;
+}
+
+@media (max-width: 640px) {
+    #changelist-filter.admin-filter-panel,
+    #changelist-filter.admin-filter-panel > summary {
+        width: 100%;
+    }
+
+    #changelist-filter.admin-filter-panel > summary {
+        justify-content: center;
+    }
+
+    #changelist .actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    #changelist .actions .admin-actions-controls,
+    #changelist .actions label,
+    #changelist .actions select {
+        width: 100%;
+    }
+
+    #changelist .paginator {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}

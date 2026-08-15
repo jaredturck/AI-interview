@@ -53,7 +53,7 @@
     max-width: 610px;
     margin: 18px 0 0;
     color: var(--text-secondary);
-    font-size: 15px;
+    font-size: 16px;
     line-height: 1.7;
 }
 
@@ -168,14 +168,14 @@
 .section-heading h2 {
     margin: 0;
     color: var(--text);
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 730;
     letter-spacing: -0.02em;
 }
 
 .section-hint {
     color: var(--text-muted);
-    font-size: 11px;
+    font-size: 14px;
 }
 
 .dashboard-metrics {
@@ -222,7 +222,7 @@
 
 .metric-label {
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 700;
 }
 
@@ -238,7 +238,7 @@
 .metric-caption {
     overflow: hidden;
     color: var(--text-muted);
-    font-size: 10px;
+    font-size: 13px;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -322,7 +322,7 @@
 .activity-copy > strong {
     overflow: hidden;
     color: var(--text) !important;
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 670;
     text-decoration: none;
     text-overflow: ellipsis;
@@ -331,7 +331,7 @@
 
 .activity-copy > span {
     color: var(--text-muted);
-    font-size: 10px;
+    font-size: 13px;
 }
 
 .operations-list {
@@ -348,7 +348,7 @@
 .operations-group h3 {
     margin: 0 0 6px;
     color: var(--text-muted);
-    font-size: 9px;
+    font-size: 13px;
     font-weight: 800;
     letter-spacing: 0.11em;
     text-transform: uppercase;
@@ -362,7 +362,7 @@
     padding: 0 9px;
     color: var(--text-secondary) !important;
     border-radius: 8px;
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 620;
     text-decoration: none;
 }
@@ -447,7 +447,7 @@
     background: var(--surface-2);
     border: 1px solid var(--border);
     border-radius: 8px;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 750;
 }
 
@@ -480,7 +480,7 @@
 
 .model-name {
     color: var(--text-secondary) !important;
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 650;
     text-decoration: none;
 }
@@ -496,7 +496,7 @@
     background: var(--surface-2);
     border: 1px solid var(--border-soft);
     border-radius: 6px;
-    font-size: 9px;
+    font-size: 13px;
     font-weight: 700;
     text-decoration: none;
     text-transform: uppercase;

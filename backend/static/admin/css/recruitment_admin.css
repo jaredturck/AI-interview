@@ -1,3 +1,5 @@
+/* Generated from backend/static/admin/scss/recruitment_admin.scss. */
+
 /*
  * Interview Admin design system.
  * This SCSS source intentionally uses CSS custom properties for runtime design tokens.
@@ -50,8 +52,12 @@
     --radius-lg: 18px;
     --radius-xl: 24px;
 
-    --content-width: 1480px;
-    --header-height: 72px;
+    --header-height: 68px;
+    --page-gutter: clamp(20px, 2.8vw, 48px);
+    --font-size-base: 16px;
+    --font-size-ui: 15px;
+    --font-size-small: 14px;
+    --font-size-caption: 13px;
 
     /* Django's own admin variables inherit the same system. */
     --primary: var(--accent);
@@ -112,7 +118,7 @@ body {
         radial-gradient(circle at 92% 8%, rgba(var(--accent-rgb), 0.045), transparent 27rem),
         var(--canvas);
     font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    font-size: 14px;
+    font-size: var(--font-size-base);
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
 }
@@ -123,6 +129,57 @@ textarea,
 select,
 button {
     font-family: inherit;
+}
+
+/*
+ * Django's stock admin deliberately uses compact 10-14px type in several
+ * element-level selectors. This bundle loads after base.css/forms.css/
+ * changelists.css/responsive.css, so establish a readable floor here and
+ * use more specific integration rules in _django_overrides.scss where needed.
+ */
+li,
+dt,
+dd,
+td,
+th {
+    font-size: var(--font-size-ui);
+}
+
+thead th,
+tfoot td {
+    font-size: var(--font-size-caption);
+}
+
+.small {
+    font-size: var(--font-size-small);
+}
+
+.mini,
+.help,
+p.help,
+form p.help,
+div.help,
+form div.help,
+div.help li {
+    font-size: var(--font-size-caption);
+}
+
+.description {
+    font-size: var(--font-size-small);
+}
+
+h4 {
+    font-size: var(--font-size-ui);
+}
+
+h5,
+blockquote {
+    font-size: var(--font-size-small);
+}
+
+code,
+pre {
+    font-size: var(--font-size-small);
 }
 
 ::selection {
@@ -198,6 +255,7 @@ summary:focus-visible {
 #container,
 .admin-shell {
     min-height: 100vh;
+    min-width: 0;
     width: 100%;
     background: transparent;
 }
@@ -206,24 +264,29 @@ summary:focus-visible {
 #header {
     position: sticky;
     z-index: 1000;
-    top: 0;
-    height: var(--header-height);
-    padding: 0;
+    display: block;
+    width: auto;
+    height: auto;
+    top: 12px;
+    min-height: var(--header-height);
+    margin: 12px var(--page-gutter) 0;
+    padding: 8px 10px;
     color: var(--text);
-    background: rgba(8, 13, 21, 0.9);
-    border-bottom: 1px solid var(--border-soft);
+    background: rgba(8, 13, 21, 0.92);
+    border: 1px solid var(--border);
+    border-radius: 16px;
     backdrop-filter: blur(18px) saturate(140%);
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.015), 0 12px 30px rgba(0, 0, 0, 0.16);
+    box-shadow: var(--shadow-md), inset 0 1px var(--highlight);
 }
 
 .admin-header-inner {
     display: flex;
     align-items: center;
-    gap: 28px;
-    width: min(100%, 1720px);
-    height: 100%;
-    margin: 0 auto;
-    padding: 0 28px;
+    gap: 24px;
+    width: 100%;
+    min-height: 50px;
+    margin: 0;
+    padding: 0 8px;
 }
 
 #branding {
@@ -257,7 +320,7 @@ summary:focus-visible {
     width: 38px;
     height: 38px;
     border-radius: 11px;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 800;
     letter-spacing: 0.04em;
 }
@@ -269,15 +332,15 @@ summary:focus-visible {
 
 .admin-brand-copy strong {
     color: var(--text);
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 730;
     letter-spacing: -0.015em;
 }
 
 .admin-brand-copy small {
     color: var(--text-muted);
-    font-size: 10px;
-    letter-spacing: 0.025em;
+    font-size: 13px;
+    letter-spacing: 0.015em;
 }
 
 .admin-primary-nav {
@@ -294,13 +357,13 @@ summary:focus-visible {
     display: flex;
     align-items: center;
     gap: 7px;
-    min-height: 38px;
-    padding: 0 12px;
+    min-height: 42px;
+    padding: 0 13px;
     color: var(--text-secondary) !important;
     background: transparent;
     border: 1px solid transparent;
     border-radius: 9px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 650;
     text-decoration: none;
     cursor: pointer;
@@ -394,13 +457,13 @@ summary:focus-visible {
     display: flex;
     width: 100%;
     align-items: center;
-    min-height: 38px;
-    padding: 0 11px;
+    min-height: 42px;
+    padding: 0 12px;
     color: var(--text-secondary) !important;
     background: transparent;
     border: 0;
     border-radius: 8px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     text-align: left;
     text-decoration: none;
@@ -444,7 +507,7 @@ summary:focus-visible {
     margin-left: auto;
     padding: 0;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 14px;
     letter-spacing: normal;
     text-transform: none;
 }
@@ -457,13 +520,13 @@ summary:focus-visible {
 #admin-language {
     width: auto;
     min-width: 116px;
-    height: 38px;
-    padding: 0 33px 0 12px;
+    height: 42px;
+    padding: 0 36px 0 13px;
     color: var(--text-secondary);
     background-color: var(--surface-1);
     border: 1px solid var(--border);
     border-radius: 9px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
 }
 
@@ -471,14 +534,14 @@ summary:focus-visible {
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
-    height: 38px;
-    padding: 0 15px !important;
+    height: 42px;
+    padding: 0 16px !important;
     color: #fff !important;
     background: linear-gradient(180deg, #7583ff 0%, var(--accent-strong) 100%) !important;
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
     border-radius: 9px !important;
     box-shadow: inset 0 1px rgba(255, 255, 255, 0.15), 0 8px 20px rgba(var(--accent-rgb), 0.16);
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 700;
     text-decoration: none !important;
 }
@@ -523,7 +586,7 @@ summary:focus-visible {
     background: var(--accent-soft);
     border: 1px solid var(--accent-border);
     border-radius: 9px;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 800;
 }
 
@@ -552,14 +615,14 @@ summary:focus-visible {
 .admin-account-meta strong {
     overflow: hidden;
     color: var(--text);
-    font-size: 12px;
+    font-size: 14px;
     text-overflow: ellipsis;
 }
 
 .admin-account-meta span {
     overflow: hidden;
     color: var(--text-muted);
-    font-size: 11px;
+    font-size: 13px;
     text-overflow: ellipsis;
 }
 
@@ -572,14 +635,15 @@ summary:focus-visible {
 }
 
 .admin-breadcrumb-shell {
+    margin-top: 10px;
     border-bottom: 1px solid var(--border-soft);
     background: rgba(10, 16, 25, 0.58);
 }
 
 .admin-breadcrumbs {
-    width: min(100%, var(--content-width));
-    margin: 0 auto;
-    padding: 11px 28px;
+    width: 100%;
+    margin: 0;
+    padding: 12px var(--page-gutter);
 }
 
 .breadcrumbs {
@@ -591,7 +655,7 @@ summary:focus-visible {
     color: var(--text-muted);
     background: transparent;
     list-style: none;
-    font-size: 11px;
+    font-size: 14px;
 }
 
 .breadcrumbs li {
@@ -621,14 +685,22 @@ summary:focus-visible {
 }
 
 .admin-content-shell {
-    width: min(100%, var(--content-width));
-    margin: 0 auto;
-    padding: 34px 28px 64px;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 34px var(--page-gutter) 64px;
 }
 
-#content {
+#content,
+.dashboard #content {
     width: 100%;
+    max-width: none;
     padding: 0;
+}
+
+#content-main {
+    float: none;
+    width: 100%;
 }
 
 .page-heading {
@@ -665,7 +737,7 @@ summary:focus-visible {
 .eyebrow {
     margin: 0 0 7px;
     color: var(--accent-bright);
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 800;
     letter-spacing: 0.13em;
     text-transform: uppercase;
@@ -682,14 +754,14 @@ a.button,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 38px;
-    padding: 0 14px;
+    min-height: 44px;
+    padding: 0 16px;
     color: var(--text) !important;
     background: var(--surface-3);
     border: 1px solid var(--border);
     border-radius: 9px;
     box-shadow: inset 0 1px var(--highlight);
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 700;
     line-height: 1;
     text-decoration: none !important;
@@ -760,8 +832,8 @@ input.danger-outline-button {
 
 .object-tools a {
     gap: 8px;
-    min-height: 40px;
-    padding: 0 14px;
+    min-height: 44px;
+    padding: 0 16px;
     letter-spacing: normal;
     text-transform: none;
 }
@@ -856,6 +928,7 @@ input.danger-outline-button {
     border: 1px solid var(--border);
     border-radius: var(--radius);
     box-shadow: inset 0 1px var(--highlight);
+    font-size: 15px;
 }
 
 .messagelist li::before {
@@ -915,7 +988,7 @@ ul.errorlist {
     margin: 7px 0 0;
     padding: 0;
     list-style: none;
-    font-size: 11px;
+    font-size: 13px;
 }
 
 /* Dashboard --------------------------------------------------------------- */
@@ -973,7 +1046,7 @@ ul.errorlist {
     max-width: 610px;
     margin: 18px 0 0;
     color: var(--text-secondary);
-    font-size: 15px;
+    font-size: 16px;
     line-height: 1.7;
 }
 
@@ -1088,14 +1161,14 @@ ul.errorlist {
 .section-heading h2 {
     margin: 0;
     color: var(--text);
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 730;
     letter-spacing: -0.02em;
 }
 
 .section-hint {
     color: var(--text-muted);
-    font-size: 11px;
+    font-size: 14px;
 }
 
 .dashboard-metrics {
@@ -1142,7 +1215,7 @@ ul.errorlist {
 
 .metric-label {
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 700;
 }
 
@@ -1158,7 +1231,7 @@ ul.errorlist {
 .metric-caption {
     overflow: hidden;
     color: var(--text-muted);
-    font-size: 10px;
+    font-size: 13px;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -1242,7 +1315,7 @@ ul.errorlist {
 .activity-copy > strong {
     overflow: hidden;
     color: var(--text) !important;
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 670;
     text-decoration: none;
     text-overflow: ellipsis;
@@ -1251,7 +1324,7 @@ ul.errorlist {
 
 .activity-copy > span {
     color: var(--text-muted);
-    font-size: 10px;
+    font-size: 13px;
 }
 
 .operations-list {
@@ -1268,7 +1341,7 @@ ul.errorlist {
 .operations-group h3 {
     margin: 0 0 6px;
     color: var(--text-muted);
-    font-size: 9px;
+    font-size: 13px;
     font-weight: 800;
     letter-spacing: 0.11em;
     text-transform: uppercase;
@@ -1282,7 +1355,7 @@ ul.errorlist {
     padding: 0 9px;
     color: var(--text-secondary) !important;
     border-radius: 8px;
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 620;
     text-decoration: none;
 }
@@ -1367,7 +1440,7 @@ ul.errorlist {
     background: var(--surface-2);
     border: 1px solid var(--border);
     border-radius: 8px;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 750;
 }
 
@@ -1400,7 +1473,7 @@ ul.errorlist {
 
 .model-name {
     color: var(--text-secondary) !important;
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 650;
     text-decoration: none;
 }
@@ -1416,7 +1489,7 @@ ul.errorlist {
     background: var(--surface-2);
     border: 1px solid var(--border-soft);
     border-radius: 6px;
-    font-size: 9px;
+    font-size: 13px;
     font-weight: 700;
     text-decoration: none;
     text-transform: uppercase;
@@ -1465,7 +1538,6 @@ ul.errorlist {
     position: relative;
     display: flex;
     flex: 1 1 520px;
-    max-width: 720px;
     align-items: center;
     gap: 8px;
 }
@@ -1499,18 +1571,18 @@ ul.errorlist {
     flex: 1 1 auto;
     width: 100%;
     min-width: 160px;
-    height: 40px;
+    height: 46px;
     padding: 0 14px 0 40px;
 }
 
 .search-submit {
     flex: 0 0 auto;
-    min-height: 40px !important;
+    min-height: 46px !important;
 }
 
 .search-result-count {
     color: var(--text-muted);
-    font-size: 11px;
+    font-size: 14px;
     white-space: nowrap;
 }
 
@@ -1532,13 +1604,13 @@ ul.errorlist {
     display: flex;
     align-items: center;
     gap: 8px;
-    height: 40px;
-    padding: 0 12px;
+    height: 46px;
+    padding: 0 14px;
     color: var(--text-secondary);
     background: var(--surface-2);
     border: 1px solid var(--border);
     border-radius: 9px;
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 700;
     cursor: pointer;
     list-style: none;
@@ -1620,7 +1692,7 @@ ul.errorlist {
     background: var(--surface-2);
     border: 1px solid var(--border-soft);
     border-radius: 7px;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 700;
     text-decoration: none;
 }
@@ -1655,7 +1727,7 @@ ul.errorlist {
     margin: 0 0 9px;
     padding: 4px 0;
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 750;
     cursor: pointer;
     list-style: none;
@@ -1689,7 +1761,7 @@ ul.errorlist {
     padding: 4px 8px;
     color: var(--text-muted) !important;
     border-radius: 7px;
-    font-size: 11px;
+    font-size: 14px;
     text-decoration: none;
 }
 
@@ -1721,7 +1793,7 @@ ul.errorlist {
     align-items: center;
     gap: 7px;
     color: var(--text-muted);
-    font-size: 11px;
+    font-size: 14px;
 }
 
 .toplinks a {
@@ -1756,24 +1828,24 @@ ul.errorlist {
     align-items: center;
     gap: 8px;
     color: var(--text-muted);
-    font-size: 11px;
+    font-size: 14px;
 }
 
 .admin-actions select {
     width: auto;
-    min-width: 210px;
-    height: 36px;
+    min-width: 0;
+    min-height: 42px;
 }
 
 .admin-actions .button {
-    min-height: 36px;
+    min-height: 42px;
 }
 
 .admin-selection-status {
     display: flex;
     gap: 8px;
     color: var(--text-muted);
-    font-size: 11px;
+    font-size: 14px;
 }
 
 .admin-selection-status a {
@@ -1807,12 +1879,12 @@ ul.errorlist {
     background: var(--surface-2);
     border: 0;
     border-bottom: 1px solid var(--border);
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 800;
     letter-spacing: 0.065em;
     text-align: left;
     text-transform: uppercase;
-    white-space: nowrap;
+    white-space: normal;
 }
 
 .results table tbody td,
@@ -1828,9 +1900,9 @@ ul.errorlist {
     background: transparent;
     border: 0;
     border-bottom: 1px solid var(--border-soft);
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 500;
-    vertical-align: middle;
+    vertical-align: top;
 }
 
 #result_list tbody tr:last-child td,
@@ -1882,7 +1954,7 @@ ul.errorlist {
 .table-heading .text a,
 .table-heading .text span {
     color: var(--text-muted) !important;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 800;
     text-decoration: none;
 }
@@ -1938,13 +2010,13 @@ ul.errorlist {
 
 .sortpriority {
     display: inline-grid;
-    width: 15px;
-    height: 15px;
+    width: 18px;
+    height: 18px;
     place-items: center;
     color: var(--accent-bright);
     background: var(--accent-soft);
     border-radius: 5px;
-    font-size: 8px;
+    font-size: 13px;
 }
 
 .action-checkbox-column,
@@ -1985,7 +2057,7 @@ img[src*="icon-unknown"] {
     color: var(--text-muted);
     background: transparent;
     border: 0;
-    font-size: 11px;
+    font-size: 14px;
 }
 
 .paginator-summary {
@@ -2029,7 +2101,7 @@ img[src*="icon-unknown"] {
     background: var(--surface-2);
     border: 1px solid var(--border-soft);
     border-radius: 7px;
-    font-size: 11px;
+    font-size: 14px;
     text-decoration: none;
 }
 
@@ -2074,9 +2146,9 @@ input[type="date"],
 input[type="time"],
 textarea,
 select {
-    min-height: 40px;
-    padding: 8px 11px;
-    font-size: 12px;
+    min-height: 46px;
+    padding: 11px 14px;
+    font-size: 16px;
     line-height: 1.4;
 }
 
@@ -2107,6 +2179,7 @@ textarea::placeholder {
 }
 
 select {
+    height: auto;
     appearance: auto;
 }
 
@@ -2173,7 +2246,7 @@ select[disabled] {
     padding: 0;
     color: var(--text);
     background: transparent;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 720;
     line-height: 1.3;
     letter-spacing: -0.015em;
@@ -2186,7 +2259,7 @@ select[disabled] {
     color: var(--text-muted);
     background: rgba(255, 255, 255, 0.008);
     border-bottom: 1px solid var(--border-soft);
-    font-size: 11px;
+    font-size: 13px;
 }
 
 .fieldset-body {
@@ -2238,7 +2311,7 @@ form .form-row label {
     width: auto;
     padding: 0;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 720;
     line-height: 1.4;
 }
@@ -2261,8 +2334,8 @@ th.required::after {
 .admin-fieldset .vTextField,
 .admin-fieldset .vLargeTextField,
 .admin-fieldset .vURLField {
-    width: min(100%, 760px);
-    max-width: 100%;
+    width: 100%;
+    max-width: none;
 }
 
 .field-control textarea.vLargeTextField,
@@ -2285,7 +2358,7 @@ form .help,
     margin: 0 !important;
     padding: 0 !important;
     color: var(--text-muted) !important;
-    font-size: 11px !important;
+    font-size: 13px !important;
     line-height: 1.55;
 }
 
@@ -2300,15 +2373,17 @@ form .help,
 
 .readonly,
 .readonly-inline {
-    min-height: 39px;
-    width: min(100%, 1000px);
-    padding: 9px 11px;
-    overflow-wrap: anywhere;
+    min-height: 44px;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 11px 14px;
+    overflow-wrap: break-word;
     color: #c8d1df;
     background: rgba(255, 255, 255, 0.025);
     border: 1px solid var(--border-soft);
     border-radius: 8px;
-    font-size: 12px;
+    font-size: 15px;
     line-height: 1.55;
 }
 
@@ -2408,26 +2483,30 @@ form .help,
     margin: 0 !important;
 }
 
-.submit-row .deletelink,
-.submit-row .closelink {
+.submit-row input.default {
+    text-transform: none;
+}
+
+.submit-row a.deletelink,
+.submit-row a.closelink {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 38px;
-    padding: 0 13px;
-    border-radius: 8px;
-    font-size: 11px;
+    min-height: 44px;
+    padding: 0 15px;
+    border-radius: 9px;
+    font-size: 14px;
     font-weight: 700;
     text-decoration: none;
 }
 
-.submit-row .deletelink {
+.submit-row a.deletelink {
     color: #ff9ca2 !important;
     background: rgba(var(--danger-rgb), 0.07);
     border: 1px solid rgba(var(--danger-rgb), 0.2);
 }
 
-.submit-row .closelink {
+.submit-row a.closelink {
     color: var(--text-secondary) !important;
     background: transparent;
     border: 1px solid var(--border-soft);
@@ -2448,8 +2527,8 @@ form .help,
 
 .related-widget-wrapper-link {
     display: inline-grid !important;
-    width: 34px;
-    height: 34px;
+    width: 40px;
+    height: 40px;
     place-items: center;
     margin: 0 !important;
     background: var(--surface-2);
@@ -2473,7 +2552,6 @@ form .help,
     grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr);
     gap: 10px;
     width: 100%;
-    max-width: 980px;
 }
 
 .selector-available,
@@ -2491,7 +2569,7 @@ form .help,
     color: var(--text-secondary) !important;
     background: var(--surface-2) !important;
     border-bottom: 1px solid var(--border) !important;
-    font-size: 10px !important;
+    font-size: 13px !important;
     font-weight: 750 !important;
 }
 
@@ -2538,8 +2616,8 @@ form .help,
 
 .selector-chooser a {
     display: grid !important;
-    width: 34px !important;
-    height: 34px !important;
+    width: 40px !important;
+    height: 40px !important;
     place-items: center;
     background-color: var(--surface-2) !important;
     border: 1px solid var(--border) !important;
@@ -2584,7 +2662,7 @@ form .help,
 
 .datetimeshortcuts {
     color: var(--text-muted);
-    font-size: 10px;
+    font-size: 13px;
 }
 
 .datetimeshortcuts a {
@@ -2594,7 +2672,7 @@ form .help,
 .required-marker {
     margin-left: 3px;
     color: var(--accent-bright);
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 850;
 }
 
@@ -2631,7 +2709,7 @@ form .help,
     padding: 0 !important;
     color: var(--text) !important;
     background: transparent !important;
-    font-size: 14px !important;
+    font-size: 15px !important;
     font-weight: 720 !important;
     letter-spacing: -0.015em;
 }
@@ -2672,7 +2750,7 @@ form .help,
 
 .inline-kicker {
     color: var(--text-muted);
-    font-size: 9px;
+    font-size: 13px;
     font-weight: 800;
     letter-spacing: 0.07em;
     text-transform: uppercase;
@@ -2681,7 +2759,7 @@ form .help,
 .inline_label {
     overflow: hidden;
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 14px;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -2697,7 +2775,7 @@ form .help,
     background: var(--surface-2);
     border: 1px solid var(--border-soft);
     border-radius: 6px;
-    font-size: 9px;
+    font-size: 13px;
     font-weight: 700;
     text-decoration: none;
 }
@@ -2714,42 +2792,73 @@ form .help,
 }
 
 .inline-table-wrapper {
+    width: 100%;
     overflow-x: auto;
 }
 
+.inline-group .tabular .inline-table-wrapper table,
+.inline-table-wrapper table {
+    width: 100%;
+    table-layout: auto;
+}
+
+.inline-table-wrapper th,
+.inline-table-wrapper td,
 .inline-table-wrapper .original {
-    width: 1%;
-    min-width: 24px;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    white-space: normal;
+    overflow-wrap: normal;
+    word-break: normal;
+    vertical-align: top;
+}
+
+.inline-table-wrapper th {
+    padding: 12px 14px;
+}
+
+.inline-table-wrapper td {
+    padding: 16px 14px;
+}
+
+.inline-table-wrapper th.column-question_index,
+.inline-table-wrapper td.field-question_index,
+.inline-table-wrapper th.column-created_at,
+.inline-table-wrapper td.field-created_at {
+    white-space: nowrap;
 }
 
 .inline-table-wrapper td.field-text,
 .inline-table-wrapper td.field-answer,
 .inline-table-wrapper td.field-question {
-    min-width: 280px;
-    max-width: 640px;
     white-space: normal;
 }
 
-.readonly-inline {
+.inline-table-wrapper .readonly-inline {
     width: auto;
     min-height: 0;
+    margin: 0;
     padding: 0;
+    overflow-wrap: normal;
+    word-break: normal;
     color: inherit;
     background: transparent;
     border: 0;
     border-radius: 0;
+    font-size: inherit;
 }
 
 .help-tooltip {
     display: inline-grid;
-    width: 14px;
-    height: 14px;
+    width: 20px;
+    height: 20px;
     place-items: center;
     margin-left: 4px;
     color: var(--text-muted);
     background: var(--surface-3);
     border-radius: 50%;
-    font-size: 8px;
+    font-size: 13px;
     font-style: normal;
 }
 /* Status badges ----------------------------------------------------------- */
@@ -2758,13 +2867,13 @@ form .help,
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    min-height: 24px;
-    padding: 0 8px;
+    min-height: 28px;
+    padding: 0 10px;
     color: var(--text-secondary);
     background: var(--surface-2);
     border: 1px solid var(--border-soft);
     border-radius: 999px;
-    font-size: 9px;
+    font-size: 13px;
     font-weight: 750;
     white-space: nowrap;
 }
@@ -2829,7 +2938,6 @@ form .help,
     display: grid;
     grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.55fr);
     gap: 22px;
-    max-width: 1160px;
 }
 
 .create-job-card,
@@ -2926,14 +3034,14 @@ form .help,
     display: block;
     margin-bottom: 3px;
     color: var(--text-secondary);
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 700;
 }
 
 .config-files code {
     color: var(--text-muted);
     background: transparent;
-    font-size: 10px;
+    font-size: 13px;
 }
 
 .create-job-note {
@@ -2955,19 +3063,19 @@ form .help,
     color: var(--accent-bright);
     border: 1px solid var(--accent-border);
     border-radius: 50%;
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 800;
 }
 
 .create-job-note strong {
     color: var(--text);
-    font-size: 11px;
+    font-size: 14px;
 }
 
 .create-job-note p {
     margin: 3px 0 0;
     color: var(--text-muted);
-    font-size: 10px;
+    font-size: 13px;
 }
 
 .create-job-actions {
@@ -3016,19 +3124,19 @@ form .help,
     background: var(--accent-soft);
     border: 1px solid var(--accent-border);
     border-radius: 9px;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 800;
 }
 
 .process-list strong {
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 14px;
 }
 
 .process-list p {
     margin: 3px 0 0;
     color: var(--text-muted);
-    font-size: 10px;
+    font-size: 13px;
 }
 /* Login ------------------------------------------------------------------- */
 
@@ -3041,7 +3149,7 @@ form .help,
 
 .recruitment-login .admin-header {
     background: transparent;
-    border-bottom-color: transparent;
+    border-color: transparent;
     box-shadow: none;
 }
 
@@ -3144,7 +3252,7 @@ form .help,
 .login-card-heading > p:not(.eyebrow) {
     margin: 6px 0 0;
     color: var(--text-muted);
-    font-size: 11px;
+    font-size: 14px;
 }
 
 .login-card .form-row {
@@ -3186,7 +3294,7 @@ form .help,
 .password-card .fieldset-header p {
     margin: 5px 0 0;
     color: var(--text-muted);
-    font-size: 10px;
+    font-size: 13px;
 }
 
 .password-status-note {
@@ -3196,7 +3304,7 @@ form .help,
     background: rgba(var(--warning-rgb), 0.07);
     border: 1px solid rgba(var(--warning-rgb), 0.18);
     border-radius: 8px;
-    font-size: 10px;
+    font-size: 13px;
 }
 
 .history-surface {
@@ -3213,7 +3321,7 @@ form .help,
     display: block;
     margin-top: 2px;
     color: var(--text-muted);
-    font-size: 9px;
+    font-size: 13px;
 }
 
 .destructive-layout {
@@ -3268,7 +3376,7 @@ form .help,
 .deletion-list h2 {
     margin: 0 0 10px;
     color: var(--text);
-    font-size: 12px;
+    font-size: 15px;
 }
 
 .deletion-list ul,
@@ -3491,7 +3599,7 @@ hr {
     color: var(--accent-bright);
     background: rgba(var(--accent-rgb), 0.12);
     border-radius: 50%;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 850;
 }
 
@@ -3570,6 +3678,13 @@ hr {
 }
 
 @media (max-width: 900px) {
+    #header,
+    .admin-header {
+        top: 8px;
+        margin: 8px 12px 0;
+        padding: 6px 8px;
+    }
+
     :root {
         --header-height: 64px;
     }
@@ -3679,15 +3794,25 @@ hr {
 }
 
 @media (max-width: 640px) {
+    :root {
+        --page-gutter: 12px;
+    }
+
+    #header,
+    .admin-header {
+        margin-right: 8px;
+        margin-left: 8px;
+    }
+
     .admin-header-inner {
         padding: 0 10px;
     }
 
     .admin-nav-link,
     .admin-nav-group > summary {
-        min-height: 34px;
+        min-height: 40px;
         padding: 0 8px;
-        font-size: 10px;
+        font-size: 13px;
     }
 
     .admin-nav-link.is-active::after,
@@ -3704,7 +3829,7 @@ hr {
     }
 
     .breadcrumbs {
-        font-size: 9px;
+        font-size: 13px;
     }
 
     .page-heading {
@@ -3924,3 +4049,543 @@ hr {
         padding-left: 6px;
     }
 }
+
+/* Django admin integration -----------------------------------------------
+ *
+ * recruitment_admin.css is intentionally loaded after Django's base,
+ * responsive, forms and changelist styles. These selectors mirror the
+ * higher-specificity stock rules that otherwise survive a broad theme
+ * selector and produce the cramped/broken layouts seen in the admin.
+ */
+
+/* Django base.css sets #container min-width: 980px and .dashboard #content
+ * width: 600px. The custom shell is responsive and must own both dimensions. */
+#container {
+    min-width: 0;
+}
+
+#content,
+.dashboard #content,
+.admin-content-shell,
+.admin-breadcrumbs {
+    width: 100%;
+    max-width: none;
+}
+
+/* Match the stock form-default selectors that otherwise force 13px controls
+ * and paragraph text even after the body baseline has been raised. */
+input,
+textarea,
+select,
+.form-row,
+.form-row p {
+    font-size: var(--font-size-base);
+}
+
+form .button {
+    font-size: var(--font-size-small);
+}
+
+.module h2,
+.module caption,
+.inline-group h2 {
+    font-size: var(--font-size-small);
+}
+
+ul.errorlist li,
+#content-related h4 {
+    font-size: var(--font-size-small);
+}
+
+/* Match Django's ol.breadcrumbs selector instead of relying on the weaker
+ * .breadcrumbs class selector. */
+ol.breadcrumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    color: var(--text-muted);
+    background: transparent;
+}
+
+ol.breadcrumbs li {
+    display: inline-flex;
+    align-items: center;
+    padding: 0;
+    font-size: 14px;
+}
+
+/* Django base.css targets #user-tools and #logout-form button directly and
+ * makes both tiny/uppercase. Match those IDs so the custom account UI wins
+ * without an !important specificity arms race. */
+#user-tools {
+    float: none;
+    margin: 0 0 0 auto;
+    padding: 0;
+    font-size: 14px;
+    letter-spacing: normal;
+    text-align: left;
+    text-transform: none;
+}
+
+#header a:focus,
+#header a:hover {
+    text-decoration: none;
+}
+
+#user-tools .admin-account-popover a {
+    border-bottom: 0;
+}
+
+#logout-form button {
+    min-height: 42px;
+    margin: 0;
+    padding: 0 12px;
+    color: #ff9ea4;
+    background: transparent;
+    border: 0;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: normal;
+    text-transform: none;
+}
+
+#logout-form button:hover,
+#logout-form button:active {
+    margin-bottom: 0;
+}
+
+/* Django's .object-tools a:link/.object-tools a:visited selector is more
+ * specific than a plain .object-tools a theme rule. Reset the stock float,
+ * uppercase treatment and icon backgrounds at the same specificity. */
+.object-tools a,
+.object-tools a:link,
+.object-tools a:visited {
+    display: inline-flex;
+    float: none;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 16px;
+    color: var(--text);
+    background-color: var(--surface-3);
+    background-image: none;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: normal;
+    line-height: 1;
+    text-decoration: none;
+    text-transform: none;
+}
+
+.object-tools li + li {
+    margin-left: 0;
+}
+
+.object-tools a.addlink,
+.object-tools a.viewsitelink,
+.object-tools a.historylink {
+    padding-left: 16px;
+    padding-right: 16px;
+    background-image: none;
+}
+
+.object-tools a.addlink,
+.object-tools a.addlink:link,
+.object-tools a.addlink:visited {
+    color: #fff;
+    background: linear-gradient(180deg, #7583ff 0%, var(--accent-strong) 100%);
+    border-color: rgba(var(--accent-rgb), 0.5);
+}
+
+/* The stock forms stylesheet is built around floated 160px labels and
+ * margin-left offsets. Our fieldset template is a stacked grid, so remove
+ * those legacy alignment rules using selectors at least as specific. */
+.admin-fieldset.aligned label {
+    float: none;
+    width: auto;
+    min-width: 0;
+    padding: 0;
+}
+
+.admin-fieldset.aligned .field-control > label,
+.admin-fieldset.aligned .field-control > label.required {
+    display: block;
+    padding: 0;
+}
+
+.admin-fieldset.aligned label:not(.vCheckboxLabel)::after {
+    display: none;
+    content: none;
+}
+
+.admin-fieldset.aligned .form-row > div,
+.admin-fieldset.aligned .form-row > .field-control,
+.admin-fieldset.aligned .field-control > label + p,
+.admin-fieldset.aligned .field-control > label + div.help,
+.admin-fieldset.aligned .field-control > label + div.readonly {
+    margin-left: 0;
+}
+
+.admin-fieldset.aligned .fieldBox {
+    float: none;
+    margin: 0;
+}
+
+form .admin-fieldset.aligned .radiolist {
+    margin: 3px 0 0;
+    padding: 0;
+}
+
+form .admin-fieldset.aligned ul {
+    margin-left: 0;
+}
+
+form .admin-fieldset.aligned .help ul {
+    margin: 6px 0 0;
+    padding-left: 17px;
+}
+
+.aligned .readonly,
+.admin-fieldset.aligned .readonly {
+    width: 100%;
+    max-width: none;
+    min-height: 44px;
+    margin: 0;
+    padding: 11px 14px;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.55;
+}
+
+/* forms.css constrains large text fields in .colM/.colMS layouts. Those
+ * column classes describe the stock admin shell, not the custom field grid. */
+.colM .admin-fieldset.aligned .vLargeTextField,
+.colMS .admin-fieldset.aligned .vLargeTextField,
+.admin-fieldset.aligned .vLargeTextField,
+.admin-fieldset.aligned .vXMLLargeTextField {
+    width: 100%;
+    max-width: none;
+}
+
+/* Stock tabular-inline CSS reserves special widths for its original/delete
+ * columns. Evidence is read-only here, so let the semantic table size columns
+ * from content and prevent one-character wrapping of dates/IDs. */
+.inline-group .tabular table,
+.inline-group .tabular .inline-table-wrapper table {
+    width: 100%;
+    table-layout: auto;
+}
+
+.inline-group .tabular th,
+.inline-group .tabular td,
+.inline-group .tabular td.original,
+.inline-group .tabular th.original {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    white-space: normal;
+    overflow-wrap: normal;
+    word-break: normal;
+}
+
+.inline-group .tabular th.column-question_index,
+.inline-group .tabular td.field-question_index,
+.inline-group .tabular th.column-created_at,
+.inline-group .tabular td.field-created_at {
+    white-space: nowrap;
+}
+
+/* forms.css gives saved tabular-inline rows 2em top padding and forces the
+ * original-object cell to zero width. The custom evidence table renders its
+ * own row controls, so those stock accommodations are actively harmful. */
+.inline-group .tabular tr.has_original td {
+    padding-top: 16px;
+}
+
+.inline-group .tabular tr td.original {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    padding: 16px 14px;
+    position: static;
+}
+
+.inline-group .tabular th.original {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    padding: 12px 14px;
+}
+
+.inline-group .tabular td.original .inline-row-object {
+    position: static;
+    margin: 0;
+    padding: 0;
+}
+
+/* Changelists -------------------------------------------------------------
+ * changelists.css uses #changelist and #changelist-filter ID selectors for
+ * layout, filters, actions, table headers and pagination. Those selectors
+ * outrank the component classes above even though this bundle loads last.
+ * Match the stock selector shape here so the custom template owns its layout
+ * without resorting to !important declarations or arbitrary column widths.
+ */
+#changelist {
+    display: block;
+    width: 100%;
+}
+
+#changelist #toolbar {
+    flex: 1 1 auto;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+}
+
+#changelist #toolbar form {
+    margin: 0;
+    padding: 0;
+}
+
+#changelist #toolbar form input[type="search"],
+#changelist #toolbar form #searchbar {
+    height: auto;
+    min-height: 46px;
+    margin: 0;
+    padding: 11px 14px 11px 40px;
+    font-size: 16px;
+}
+
+#changelist #toolbar form .search-submit,
+#changelist #toolbar form input[type="submit"] {
+    width: auto;
+    height: auto;
+    min-height: 46px;
+    margin: 0;
+    padding: 0 16px;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+#changelist-filter.admin-filter-panel {
+    position: relative;
+    flex: 0 0 auto;
+    order: initial;
+    width: auto;
+    margin: 0;
+    background: transparent;
+    border: 0;
+}
+
+#changelist-filter.admin-filter-panel > summary {
+    margin: 0;
+}
+
+#changelist-filter details > summary::before,
+#changelist-filter details[open] > summary::before {
+    content: none;
+}
+
+#changelist-filter .filter-panel-heading h2 {
+    margin: 0;
+    padding: 0;
+    color: var(--text);
+    background: transparent;
+    border: 0;
+    font-size: 16px;
+    font-weight: 730;
+    letter-spacing: -0.02em;
+    text-transform: none;
+}
+
+#changelist-filter .admin-filter-group > summary {
+    margin: 0 0 9px;
+    padding: 4px 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 750;
+}
+
+#changelist-filter .admin-filter-group ul,
+#changelist-filter .admin-filter-group li,
+#changelist-filter .admin-filter-group li.selected {
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+#changelist-filter .admin-filter-group ul {
+    display: grid;
+    gap: 2px;
+}
+
+#changelist-filter .admin-filter-group li a {
+    display: flex;
+    min-height: 30px;
+    padding: 4px 8px;
+    word-break: normal;
+}
+
+#changelist .actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    width: 100%;
+    min-height: 58px;
+    margin: 0;
+    padding: 10px 16px;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.012);
+    border: 0;
+    border-bottom: 1px solid var(--border-soft);
+    line-height: normal;
+}
+
+#changelist .actions label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+#changelist .actions select {
+    width: auto;
+    min-width: 0;
+    height: auto;
+    min-height: 42px;
+    margin: 0;
+    padding: 9px 34px 9px 12px;
+    color: var(--text);
+    background-color: var(--surface-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+#changelist .actions .button {
+    width: auto;
+    height: auto;
+    min-width: 0;
+    min-height: 42px;
+    margin: 0;
+    padding: 0 16px;
+    color: var(--text);
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+#changelist .actions span.all,
+#changelist .actions span.action-counter,
+#changelist .actions span.clear,
+#changelist .actions span.question {
+    margin: 0;
+    font-size: 14px;
+}
+
+#changelist #result_list {
+    width: 100%;
+    table-layout: auto;
+}
+
+#changelist #result_list thead th {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    padding: 13px 14px;
+    vertical-align: middle;
+    white-space: normal;
+}
+
+#changelist #result_list thead th .text span,
+#changelist #result_list thead th .text a {
+    padding: 0;
+}
+
+#changelist #result_list thead th.sorted .text {
+    padding-right: 0;
+}
+
+#changelist #result_list thead th.sorted .sortoptions {
+    display: inline-flex;
+    float: none;
+    align-items: center;
+    gap: 4px;
+    margin-left: 7px;
+    padding: 0;
+}
+
+#changelist #result_list thead th.action-checkbox-column,
+#changelist #result_list tbody td.action-checkbox {
+    width: 42px;
+    min-width: 42px;
+    max-width: 42px;
+}
+
+#changelist #result_list tbody th,
+#changelist #result_list tbody td {
+    min-width: 0;
+    max-width: none;
+    padding: 14px;
+    vertical-align: top;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: normal;
+}
+
+#changelist .paginator {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 0;
+    padding: 0;
+    color: var(--text-muted);
+    background: transparent;
+    border: 0;
+    font-size: 14px;
+    line-height: normal;
+}
+
+@media (max-width: 640px) {
+    #changelist-filter.admin-filter-panel,
+    #changelist-filter.admin-filter-panel > summary {
+        width: 100%;
+    }
+
+    #changelist-filter.admin-filter-panel > summary {
+        justify-content: center;
+    }
+
+    #changelist .actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    #changelist .actions .admin-actions-controls,
+    #changelist .actions label,
+    #changelist .actions select {
+        width: 100%;
+    }
+
+    #changelist .paginator {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+

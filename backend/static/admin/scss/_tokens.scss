@@ -50,8 +50,12 @@
     --radius-lg: 18px;
     --radius-xl: 24px;
 
-    --content-width: 1480px;
-    --header-height: 72px;
+    --header-height: 68px;
+    --page-gutter: clamp(20px, 2.8vw, 48px);
+    --font-size-base: 16px;
+    --font-size-ui: 15px;
+    --font-size-small: 14px;
+    --font-size-caption: 13px;
 
     /* Django's own admin variables inherit the same system. */
     --primary: var(--accent);
@@ -112,7 +116,7 @@ body {
         radial-gradient(circle at 92% 8%, rgba(var(--accent-rgb), 0.045), transparent 27rem),
         var(--canvas);
     font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    font-size: 14px;
+    font-size: var(--font-size-base);
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
 }
@@ -123,6 +127,57 @@ textarea,
 select,
 button {
     font-family: inherit;
+}
+
+/*
+ * Django's stock admin deliberately uses compact 10-14px type in several
+ * element-level selectors. This bundle loads after base.css/forms.css/
+ * changelists.css/responsive.css, so establish a readable floor here and
+ * use more specific integration rules in _django_overrides.scss where needed.
+ */
+li,
+dt,
+dd,
+td,
+th {
+    font-size: var(--font-size-ui);
+}
+
+thead th,
+tfoot td {
+    font-size: var(--font-size-caption);
+}
+
+.small {
+    font-size: var(--font-size-small);
+}
+
+.mini,
+.help,
+p.help,
+form p.help,
+div.help,
+form div.help,
+div.help li {
+    font-size: var(--font-size-caption);
+}
+
+.description {
+    font-size: var(--font-size-small);
+}
+
+h4 {
+    font-size: var(--font-size-ui);
+}
+
+h5,
+blockquote {
+    font-size: var(--font-size-small);
+}
+
+code,
+pre {
+    font-size: var(--font-size-small);
 }
 
 ::selection {

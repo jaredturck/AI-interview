@@ -9,14 +9,14 @@ a.button,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 38px;
-    padding: 0 14px;
+    min-height: 44px;
+    padding: 0 16px;
     color: var(--text) !important;
     background: var(--surface-3);
     border: 1px solid var(--border);
     border-radius: 9px;
     box-shadow: inset 0 1px var(--highlight);
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 700;
     line-height: 1;
     text-decoration: none !important;
@@ -87,8 +87,8 @@ input.danger-outline-button {
 
 .object-tools a {
     gap: 8px;
-    min-height: 40px;
-    padding: 0 14px;
+    min-height: 44px;
+    padding: 0 16px;
     letter-spacing: normal;
     text-transform: none;
 }
@@ -183,6 +183,7 @@ input.danger-outline-button {
     border: 1px solid var(--border);
     border-radius: var(--radius);
     box-shadow: inset 0 1px var(--highlight);
+    font-size: 15px;
 }
 
 .messagelist li::before {
@@ -242,5 +243,5 @@ ul.errorlist {
     margin: 7px 0 0;
     padding: 0;
     list-style: none;
-    font-size: 11px;
+    font-size: 13px;
 }

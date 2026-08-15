@@ -31,7 +31,7 @@
     padding: 0 !important;
     color: var(--text) !important;
     background: transparent !important;
-    font-size: 14px !important;
+    font-size: 15px !important;
     font-weight: 720 !important;
     letter-spacing: -0.015em;
 }
@@ -72,7 +72,7 @@
 
 .inline-kicker {
     color: var(--text-muted);
-    font-size: 9px;
+    font-size: 13px;
     font-weight: 800;
     letter-spacing: 0.07em;
     text-transform: uppercase;
@@ -81,7 +81,7 @@
 .inline_label {
     overflow: hidden;
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 14px;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -97,7 +97,7 @@
     background: var(--surface-2);
     border: 1px solid var(--border-soft);
     border-radius: 6px;
-    font-size: 9px;
+    font-size: 13px;
     font-weight: 700;
     text-decoration: none;
 }
@@ -114,42 +114,73 @@
 }
 
 .inline-table-wrapper {
+    width: 100%;
     overflow-x: auto;
 }
 
+.inline-group .tabular .inline-table-wrapper table,
+.inline-table-wrapper table {
+    width: 100%;
+    table-layout: auto;
+}
+
+.inline-table-wrapper th,
+.inline-table-wrapper td,
 .inline-table-wrapper .original {
-    width: 1%;
-    min-width: 24px;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    white-space: normal;
+    overflow-wrap: normal;
+    word-break: normal;
+    vertical-align: top;
+}
+
+.inline-table-wrapper th {
+    padding: 12px 14px;
+}
+
+.inline-table-wrapper td {
+    padding: 16px 14px;
+}
+
+.inline-table-wrapper th.column-question_index,
+.inline-table-wrapper td.field-question_index,
+.inline-table-wrapper th.column-created_at,
+.inline-table-wrapper td.field-created_at {
+    white-space: nowrap;
 }
 
 .inline-table-wrapper td.field-text,
 .inline-table-wrapper td.field-answer,
 .inline-table-wrapper td.field-question {
-    min-width: 280px;
-    max-width: 640px;
     white-space: normal;
 }
 
-.readonly-inline {
+.inline-table-wrapper .readonly-inline {
     width: auto;
     min-height: 0;
+    margin: 0;
     padding: 0;
+    overflow-wrap: normal;
+    word-break: normal;
     color: inherit;
     background: transparent;
     border: 0;
     border-radius: 0;
+    font-size: inherit;
 }
 
 .help-tooltip {
     display: inline-grid;
-    width: 14px;
-    height: 14px;
+    width: 20px;
+    height: 20px;
     place-items: center;
     margin-left: 4px;
     color: var(--text-muted);
     background: var(--surface-3);
     border-radius: 50%;
-    font-size: 8px;
+    font-size: 13px;
     font-style: normal;
 }
 /* Status badges ----------------------------------------------------------- */
@@ -158,13 +189,13 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    min-height: 24px;
-    padding: 0 8px;
+    min-height: 28px;
+    padding: 0 10px;
     color: var(--text-secondary);
     background: var(--surface-2);
     border: 1px solid var(--border-soft);
     border-radius: 999px;
-    font-size: 9px;
+    font-size: 13px;
     font-weight: 750;
     white-space: nowrap;
 }

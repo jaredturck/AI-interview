@@ -52,6 +52,13 @@
 }
 
 @media (max-width: 900px) {
+    #header,
+    .admin-header {
+        top: 8px;
+        margin: 8px 12px 0;
+        padding: 6px 8px;
+    }
+
     :root {
         --header-height: 64px;
     }
@@ -161,15 +168,25 @@
 }
 
 @media (max-width: 640px) {
+    :root {
+        --page-gutter: 12px;
+    }
+
+    #header,
+    .admin-header {
+        margin-right: 8px;
+        margin-left: 8px;
+    }
+
     .admin-header-inner {
         padding: 0 10px;
     }
 
     .admin-nav-link,
     .admin-nav-group > summary {
-        min-height: 34px;
+        min-height: 40px;
         padding: 0 8px;
-        font-size: 10px;
+        font-size: 13px;
     }
 
     .admin-nav-link.is-active::after,
@@ -186,7 +203,7 @@
     }
 
     .breadcrumbs {
-        font-size: 9px;
+        font-size: 13px;
     }
 
     .page-heading {

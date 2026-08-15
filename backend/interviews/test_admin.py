@@ -4,7 +4,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.test import Client
 
-from interviews.models import Job
+from interviews.models import InterviewSession, Job, JobApplication
 
 User = get_user_model()
 
@@ -35,6 +35,26 @@ def test_admin_creates_open_job_from_configuration(monkeypatch):
     assert job.title == 'Commercial Cleaner'
     assert job.description == description
     assert job.evaluation_questions == questions
+
+
+@pytest.mark.django_db
+def test_interview_session_change_form_keeps_superuser_delete_action():
+    ''' Verify read-only interview evidence can still be deleted through Django's normal protected delete flow. '''
+    user = User.objects.create_superuser(username='admin@example.com', email='admin@example.com', password='A-strong-test-password-42')
+    job = Job.objects.create(
+        title='Backend Software Developer',
+        subtitle='Test role',
+        description='Test description',
+        evaluation_questions='Technical evidence',
+    )
+    application = JobApplication.objects.create(user=user, job=job)
+    interview = InterviewSession.objects.create(application=application)
+    client = Client()
+    client.force_login(user)
+    response = client.get(f'/admin/interviews/interviewsession/{interview.pk}/change/')
+    assert response.status_code == 200
+    assert f'/admin/interviews/interviewsession/{interview.pk}/delete/'.encode() in response.content
+    assert b'class="deletelink"' in response.content
 
 @pytest.mark.django_db
 def test_admin_change_list_uses_redesigned_shell_and_final_stylesheet():

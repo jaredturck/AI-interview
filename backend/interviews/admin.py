@@ -126,13 +126,9 @@ class RecruitmentAdminSite(admin.AdminSite):
 recruitment_admin_site = RecruitmentAdminSite(name='admin')
 
 class ReadOnlyEvidenceAdmin(admin.ModelAdmin):
-    ''' Prevent staff from creating or deleting records that represent candidate or model evidence. '''
+    ''' Prevent manual evidence creation while retaining normal Django delete permissions. '''
     def has_add_permission(self, request):
         ''' Block manual evidence creation. '''
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        ''' Block manual evidence deletion. '''
         return False
 
 class ConversationTurnInline(admin.TabularInline):

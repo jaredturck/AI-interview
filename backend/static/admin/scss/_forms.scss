@@ -26,9 +26,9 @@ input[type="date"],
 input[type="time"],
 textarea,
 select {
-    min-height: 40px;
-    padding: 8px 11px;
-    font-size: 12px;
+    min-height: 46px;
+    padding: 11px 14px;
+    font-size: 16px;
     line-height: 1.4;
 }
 
@@ -59,6 +59,7 @@ textarea::placeholder {
 }
 
 select {
+    height: auto;
     appearance: auto;
 }
 
@@ -125,7 +126,7 @@ select[disabled] {
     padding: 0;
     color: var(--text);
     background: transparent;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 720;
     line-height: 1.3;
     letter-spacing: -0.015em;
@@ -138,7 +139,7 @@ select[disabled] {
     color: var(--text-muted);
     background: rgba(255, 255, 255, 0.008);
     border-bottom: 1px solid var(--border-soft);
-    font-size: 11px;
+    font-size: 13px;
 }
 
 .fieldset-body {
@@ -190,7 +191,7 @@ form .form-row label {
     width: auto;
     padding: 0;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 720;
     line-height: 1.4;
 }
@@ -213,8 +214,8 @@ th.required::after {
 .admin-fieldset .vTextField,
 .admin-fieldset .vLargeTextField,
 .admin-fieldset .vURLField {
-    width: min(100%, 760px);
-    max-width: 100%;
+    width: 100%;
+    max-width: none;
 }
 
 .field-control textarea.vLargeTextField,
@@ -237,7 +238,7 @@ form .help,
     margin: 0 !important;
     padding: 0 !important;
     color: var(--text-muted) !important;
-    font-size: 11px !important;
+    font-size: 13px !important;
     line-height: 1.55;
 }
 
@@ -252,15 +253,17 @@ form .help,
 
 .readonly,
 .readonly-inline {
-    min-height: 39px;
-    width: min(100%, 1000px);
-    padding: 9px 11px;
-    overflow-wrap: anywhere;
+    min-height: 44px;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 11px 14px;
+    overflow-wrap: break-word;
     color: #c8d1df;
     background: rgba(255, 255, 255, 0.025);
     border: 1px solid var(--border-soft);
     border-radius: 8px;
-    font-size: 12px;
+    font-size: 15px;
     line-height: 1.55;
 }
 
@@ -360,26 +363,30 @@ form .help,
     margin: 0 !important;
 }
 
-.submit-row .deletelink,
-.submit-row .closelink {
+.submit-row input.default {
+    text-transform: none;
+}
+
+.submit-row a.deletelink,
+.submit-row a.closelink {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 38px;
-    padding: 0 13px;
-    border-radius: 8px;
-    font-size: 11px;
+    min-height: 44px;
+    padding: 0 15px;
+    border-radius: 9px;
+    font-size: 14px;
     font-weight: 700;
     text-decoration: none;
 }
 
-.submit-row .deletelink {
+.submit-row a.deletelink {
     color: #ff9ca2 !important;
     background: rgba(var(--danger-rgb), 0.07);
     border: 1px solid rgba(var(--danger-rgb), 0.2);
 }
 
-.submit-row .closelink {
+.submit-row a.closelink {
     color: var(--text-secondary) !important;
     background: transparent;
     border: 1px solid var(--border-soft);
@@ -400,8 +407,8 @@ form .help,
 
 .related-widget-wrapper-link {
     display: inline-grid !important;
-    width: 34px;
-    height: 34px;
+    width: 40px;
+    height: 40px;
     place-items: center;
     margin: 0 !important;
     background: var(--surface-2);
@@ -425,7 +432,6 @@ form .help,
     grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr);
     gap: 10px;
     width: 100%;
-    max-width: 980px;
 }
 
 .selector-available,
@@ -443,7 +449,7 @@ form .help,
     color: var(--text-secondary) !important;
     background: var(--surface-2) !important;
     border-bottom: 1px solid var(--border) !important;
-    font-size: 10px !important;
+    font-size: 13px !important;
     font-weight: 750 !important;
 }
 
@@ -490,8 +496,8 @@ form .help,
 
 .selector-chooser a {
     display: grid !important;
-    width: 34px !important;
-    height: 34px !important;
+    width: 40px !important;
+    height: 40px !important;
     place-items: center;
     background-color: var(--surface-2) !important;
     border: 1px solid var(--border) !important;
@@ -536,7 +542,7 @@ form .help,
 
 .datetimeshortcuts {
     color: var(--text-muted);
-    font-size: 10px;
+    font-size: 13px;
 }
 
 .datetimeshortcuts a {
@@ -546,6 +552,6 @@ form .help,
 .required-marker {
     margin-left: 3px;
     color: var(--accent-bright);
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 850;
 }
