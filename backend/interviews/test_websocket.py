@@ -1,5 +1,7 @@
 ''' Verify authenticated Django Channels interview flow and cross-account ownership isolation. '''
 
+from unittest.mock import Mock
+
 import numpy as np
 import pytest
 from asgiref.sync import sync_to_async
@@ -8,6 +10,7 @@ from django.contrib.auth import get_user_model
 from django.test import Client
 
 from ai_interviewer.asgi import application
+from interviews.consumers import AUDIO_CHUNK_BYTES
 from interviews.models import InterviewSession, Job, JobApplication
 from interviews.services.runtime import model_runtime
 
@@ -22,6 +25,52 @@ async def create_interview(user):
     job = await Job.objects.acreate(title='Commercial Cleaner', description='Clean commercial facilities.', evaluation_questions='Reliability evidence')
     application = await JobApplication.objects.acreate(user=user, job=job)
     return await InterviewSession.objects.acreate(application=application, status='created')
+
+async def receive_audio_transfer(communicator):
+    ''' Receive one chunked interviewer WAV and verify its framing and per-message bound. '''
+    start = await communicator.receive_json_from()
+    assert start['type'] == 'audio_start'
+    chunks = []
+
+    for _ in range(start['chunks']):
+        chunk = await communicator.receive_from()
+        assert isinstance(chunk, bytes)
+        assert len(chunk) <= AUDIO_CHUNK_BYTES
+        chunks.append(chunk)
+
+    end = await communicator.receive_json_from()
+    assert end == {'type': 'audio_end', 'id': start['id']}
+    assert sum(len(chunk) for chunk in chunks) == start['bytes']
+    return b''.join(chunks), chunks, start
+
+async def send_candidate_audio_transfer(communicator, audio, manual=False):
+    ''' Send one browser recording using the same bounded transfer framing as the frontend. '''
+    transfer_id = 'candidate-test-transfer'
+    total_chunks = (len(audio) + AUDIO_CHUNK_BYTES - 1) // AUDIO_CHUNK_BYTES
+    await communicator.send_json_to({
+        'type': 'audio_start',
+        'id': transfer_id,
+        'mime': 'audio/webm',
+        'bytes': len(audio),
+        'chunks': total_chunks,
+        'manual': manual,
+    })
+
+    for offset in range(0, len(audio), AUDIO_CHUNK_BYTES):
+        await communicator.send_to(bytes_data=audio[offset:offset + AUDIO_CHUNK_BYTES])
+
+    await communicator.send_json_to({'type': 'audio_end', 'id': transfer_id})
+
+async def receive_opening(communicator):
+    ''' Consume the standard opening-question sequence including its chunked interviewer audio. '''
+    assert await communicator.receive_json_from() == {'type': 'status', 'status': 'loading'}
+    assert await communicator.receive_json_from() == {'type': 'history', 'turns': []}
+    assert await communicator.receive_json_from() == {'type': 'status', 'status': 'thinking'}
+    assert (await communicator.receive_json_from())['type'] == 'assistant'
+    assert await communicator.receive_json_from() == {'type': 'status', 'status': 'speaking'}
+    audio, _, _ = await receive_audio_transfer(communicator)
+    assert audio == b'RIFF-test-audio'
+    assert await communicator.receive_json_from() == {'type': 'ready'}
 
 @pytest.mark.asyncio
 @pytest.mark.django_db(transaction=True)
@@ -50,8 +99,8 @@ async def test_typed_websocket_turn(monkeypatch):
     assert assistant['type'] == 'assistant'
     speaking = await communicator.receive_json_from()
     assert speaking == {'type': 'status', 'status': 'speaking'}
-    audio = await communicator.receive_from()
-    assert isinstance(audio, bytes)
+    audio, _, _ = await receive_audio_transfer(communicator)
+    assert audio == b'RIFF-test-audio'
     ready = await communicator.receive_json_from()
     assert ready == {'type': 'ready'}
 
@@ -71,6 +120,80 @@ async def test_typed_websocket_turn(monkeypatch):
             break
 
     assert seen_ended is True
+    await communicator.disconnect()
+
+@pytest.mark.asyncio
+@pytest.mark.django_db(transaction=True)
+async def test_interviewer_audio_larger_than_websocket_limit_is_chunked(monkeypatch):
+    ''' Verify a logical WAV larger than Daphne's default limit is delivered as bounded ordered messages. '''
+    user = await sync_to_async(User.objects.create_user)(username='large-audio@example.com', email='large-audio@example.com',
+        password='A-strong-test-password-42')
+    interview = await create_interview(user)
+    client = Client()
+    await sync_to_async(client.force_login)(user)
+    session_cookie = client.cookies['sessionid'].value
+    large_audio = b'RIFF' + (b'a' * ((1024 * 1024) + 12345))
+    monkeypatch.setattr(model_runtime.suite, 'speak', lambda text: large_audio)
+
+    headers = [(b'origin', b'http://localhost'), (b'cookie', f'sessionid={session_cookie}'.encode())]
+    communicator = WebsocketCommunicator(application, f'/ws/interviews/{interview.id}/', headers=headers)
+    connected, _ = await communicator.connect()
+    assert connected is True
+
+    assert await communicator.receive_json_from() == {'type': 'status', 'status': 'loading'}
+    assert await communicator.receive_json_from() == {'type': 'history', 'turns': []}
+    assert await communicator.receive_json_from() == {'type': 'status', 'status': 'thinking'}
+    assert (await communicator.receive_json_from())['type'] == 'assistant'
+    assert await communicator.receive_json_from() == {'type': 'status', 'status': 'speaking'}
+    audio, chunks, start = await receive_audio_transfer(communicator)
+    assert audio == large_audio
+    assert start['mime'] == 'audio/wav'
+    assert start['bytes'] == len(large_audio)
+    assert start['chunks'] == len(chunks)
+    assert len(chunks) > 1
+    assert max(len(chunk) for chunk in chunks) <= AUDIO_CHUNK_BYTES
+    assert await communicator.receive_json_from() == {'type': 'ready'}
+    await communicator.disconnect()
+
+@pytest.mark.asyncio
+@pytest.mark.django_db(transaction=True)
+async def test_candidate_audio_larger_than_websocket_limit_is_reassembled(monkeypatch):
+    ''' Verify large browser recordings arrive in bounded messages and are reconstructed before decoding. '''
+    user = await sync_to_async(User.objects.create_user)(username='large-candidate-audio@example.com',
+        email='large-candidate-audio@example.com', password='A-strong-test-password-42')
+    interview = await create_interview(user)
+    client = Client()
+    await sync_to_async(client.force_login)(user)
+    session_cookie = client.cookies['sessionid'].value
+    decoder = Mock(return_value=(np.ones(1600, dtype=np.float32), 16000))
+    monkeypatch.setattr('interviews.consumers.decode_browser_audio', decoder)
+    large_audio = b'webm' + (b'b' * ((1024 * 1024) + 8192))
+
+    headers = [(b'origin', b'http://localhost'), (b'cookie', f'sessionid={session_cookie}'.encode())]
+    communicator = WebsocketCommunicator(application, f'/ws/interviews/{interview.id}/', headers=headers)
+    connected, _ = await communicator.connect()
+    assert connected is True
+
+    assert await communicator.receive_json_from() == {'type': 'status', 'status': 'loading'}
+    assert await communicator.receive_json_from() == {'type': 'history', 'turns': []}
+    assert await communicator.receive_json_from() == {'type': 'status', 'status': 'thinking'}
+    assert (await communicator.receive_json_from())['type'] == 'assistant'
+    assert await communicator.receive_json_from() == {'type': 'status', 'status': 'speaking'}
+    await receive_audio_transfer(communicator)
+    assert await communicator.receive_json_from() == {'type': 'ready'}
+
+    await send_candidate_audio_transfer(communicator, large_audio, manual=True)
+    assert await communicator.receive_json_from() == {'type': 'status', 'status': 'transcribing'}
+    assert decoder.call_args.args[0] == large_audio
+    assert await communicator.receive_json_from() == {
+        'type': 'candidate',
+        'text': 'I managed commercial cleaning schedules and quality checks.'
+    }
+    assert await communicator.receive_json_from() == {'type': 'status', 'status': 'thinking'}
+    assert (await communicator.receive_json_from())['type'] == 'assistant'
+    assert await communicator.receive_json_from() == {'type': 'status', 'status': 'speaking'}
+    await receive_audio_transfer(communicator)
+    assert await communicator.receive_json_from() == {'type': 'ready'}
     await communicator.disconnect()
 
 @pytest.mark.asyncio
@@ -106,10 +229,9 @@ async def test_websocket_ignores_non_speech_audio(monkeypatch):
     connected, _ = await communicator.connect()
     assert connected is True
 
-    for _ in range(7):
-        await communicator.receive_from()
+    await receive_opening(communicator)
 
-    await communicator.send_to(bytes_data=b'noise')
+    await send_candidate_audio_transfer(communicator, b'noise')
     ignored = await communicator.receive_json_from()
     ready = await communicator.receive_json_from()
     assert ignored == {'type': 'audio_ignored', 'pending_turn': False}
@@ -136,16 +258,15 @@ async def test_websocket_accumulates_incomplete_speech_until_turn_completion(mon
     connected, _ = await communicator.connect()
     assert connected is True
 
-    for _ in range(7):
-        await communicator.receive_from()
+    await receive_opening(communicator)
 
-    await communicator.send_to(bytes_data=b'first-segment')
+    await send_candidate_audio_transfer(communicator, b'first-segment')
     assert await communicator.receive_json_from() == {'type': 'turn_pending'}
     assert await communicator.receive_json_from() == {'type': 'status', 'status': 'listening'}
 
     await communicator.send_json_to({'type': 'speech_resumed'})
     assert await communicator.receive_json_from() == {'type': 'status', 'status': 'listening'}
-    await communicator.send_to(bytes_data=b'second-segment')
+    await send_candidate_audio_transfer(communicator, b'second-segment')
     assert await communicator.receive_json_from() == {'type': 'turn_pending'}
     assert await communicator.receive_json_from() == {'type': 'status', 'status': 'listening'}
     assert await communicator.receive_json_from() == {'type': 'status', 'status': 'transcribing'}
@@ -155,7 +276,8 @@ async def test_websocket_accumulates_incomplete_speech_until_turn_completion(mon
     assert await communicator.receive_json_from() == {'type': 'status', 'status': 'thinking'}
     assert (await communicator.receive_json_from())['type'] == 'assistant'
     assert await communicator.receive_json_from() == {'type': 'status', 'status': 'speaking'}
-    assert isinstance(await communicator.receive_from(), bytes)
+    audio, _, _ = await receive_audio_transfer(communicator)
+    assert audio == b'RIFF-test-audio'
     assert await communicator.receive_json_from() == {'type': 'ready'}
     await communicator.disconnect()
 
@@ -176,11 +298,9 @@ async def test_push_to_talk_submits_speech_without_smart_turn_wait(monkeypatch):
     connected, _ = await communicator.connect()
     assert connected is True
 
-    for _ in range(7):
-        await communicator.receive_from()
+    await receive_opening(communicator)
 
-    await communicator.send_json_to({'type': 'audio_mode', 'manual': True})
-    await communicator.send_to(bytes_data=b'push-to-talk')
+    await send_candidate_audio_transfer(communicator, b'push-to-talk', manual=True)
     assert await communicator.receive_json_from() == {'type': 'status', 'status': 'transcribing'}
     assert await communicator.receive_json_from() == {
         'type': 'candidate',
@@ -189,6 +309,7 @@ async def test_push_to_talk_submits_speech_without_smart_turn_wait(monkeypatch):
     assert await communicator.receive_json_from() == {'type': 'status', 'status': 'thinking'}
     assert (await communicator.receive_json_from())['type'] == 'assistant'
     assert await communicator.receive_json_from() == {'type': 'status', 'status': 'speaking'}
-    assert isinstance(await communicator.receive_from(), bytes)
+    audio, _, _ = await receive_audio_transfer(communicator)
+    assert audio == b'RIFF-test-audio'
     assert await communicator.receive_json_from() == {'type': 'ready'}
     await communicator.disconnect()

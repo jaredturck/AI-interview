@@ -1,6 +1,6 @@
 ''' Bridge authenticated browser interview traffic, model services and evaluation through Django Channels. '''
 
-import asyncio, json, logging
+import asyncio, json, logging, uuid
 from datetime import timedelta
 
 import numpy as np
@@ -17,6 +17,7 @@ from interviews.services.runtime import model_runtime
 
 LOGGER = logging.getLogger(__name__)
 MAX_AUDIO_BYTES = 20000000
+AUDIO_CHUNK_BYTES = 256 * 1024
 TURN_COMPLETE_GRACE_SECONDS = 0.5
 TURN_HOLD_SECONDS = 6
 CLOSING_FALLBACK = 'Thank you for your time today. The interview is now complete.'
@@ -33,8 +34,9 @@ class InterviewConsumer(AsyncWebsocketConsumer):
         self.timeout_task = None
         self.turn_finalize_task = None
         self.turn_lock = asyncio.Lock()
+        self.audio_send_lock = asyncio.Lock()
         self.pending_turn_audio = []
-        self.force_next_audio = False
+        self.incoming_audio = None
         self.speech_resumed_since_probe = False
         user = self.scope['user']
 
@@ -108,6 +110,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
             self.timeout_task.cancel()
 
         self.cancel_turn_finalize()
+        self.incoming_audio = None
 
         if self.interview and not self.evaluation_started:
             model_runtime.release_interview(self.interview.id)
@@ -118,9 +121,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
             return
 
         if bytes_data is not None:
-            force_turn = self.force_next_audio
-            self.force_next_audio = False
-            await self.handle_audio(bytes_data, force_turn=force_turn)
+            await self.receive_audio_chunk(bytes_data)
             return
 
         if not text_data:
@@ -135,18 +136,82 @@ class InterviewConsumer(AsyncWebsocketConsumer):
 
         message_type = message.get('type')
 
-        if message_type == 'text':
+        if message_type == 'audio_start':
+            await self.start_audio_receive(message)
+        elif message_type == 'audio_end':
+            await self.finish_audio_receive(message)
+        elif message_type == 'text':
             self.pending_transcript = ''
             self.reset_pending_turn()
             await self.handle_candidate_text(message.get('text', ''))
-        elif message_type == 'audio_mode':
-            self.force_next_audio = bool(message.get('manual'))
         elif message_type == 'speech_resumed':
             await self.handle_speech_resumed()
         elif message_type == 'confirm_transcript':
             await self.handle_confirmed_transcript(message.get('text', ''))
         elif message_type == 'control':
             await self.handle_control(message.get('action', ''))
+
+    async def start_audio_receive(self, message):
+        ''' Start one bounded candidate-audio transfer from the browser. '''
+        transfer_id = message.get('id')
+        total_bytes = message.get('bytes')
+        total_chunks = message.get('chunks')
+
+        if not isinstance(transfer_id, str) or not transfer_id or not isinstance(total_bytes, int) or not isinstance(total_chunks, int):
+            self.incoming_audio = None
+            await self.send_json({'type': 'error', 'code': 'invalid_message', 'message': 'The interview received an invalid message.'})
+            return
+
+        if total_bytes < 0 or total_bytes > MAX_AUDIO_BYTES:
+            self.incoming_audio = None
+            await self.send_json({'type': 'error', 'code': 'recording_too_large',
+                'message': 'That recording is too large. Please send a shorter answer or type your response.'})
+            return
+
+        expected_chunks = (total_bytes + AUDIO_CHUNK_BYTES - 1) // AUDIO_CHUNK_BYTES
+
+        if total_chunks != expected_chunks:
+            self.incoming_audio = None
+            await self.send_json({'type': 'error', 'code': 'invalid_message', 'message': 'The interview received an invalid message.'})
+            return
+
+        self.incoming_audio = {
+            'id': transfer_id,
+            'bytes': total_bytes,
+            'chunks': total_chunks,
+            'received_bytes': 0,
+            'parts': [],
+            'manual': bool(message.get('manual')),
+        }
+
+    async def receive_audio_chunk(self, audio_bytes):
+        ''' Append one bounded browser-audio message to the active candidate transfer. '''
+        transfer = self.incoming_audio
+
+        if not transfer:
+            await self.send_json({'type': 'error', 'code': 'invalid_message', 'message': 'The interview received an invalid message.'})
+            return
+
+        if len(audio_bytes) > AUDIO_CHUNK_BYTES or len(transfer['parts']) >= transfer['chunks'] or \
+                transfer['received_bytes'] + len(audio_bytes) > transfer['bytes']:
+            self.incoming_audio = None
+            await self.send_json({'type': 'error', 'code': 'invalid_message', 'message': 'The interview received an invalid message.'})
+            return
+
+        transfer['parts'].append(audio_bytes)
+        transfer['received_bytes'] += len(audio_bytes)
+
+    async def finish_audio_receive(self, message):
+        ''' Validate and reassemble one candidate recording before passing it to the existing speech pipeline. '''
+        transfer = self.incoming_audio
+        self.incoming_audio = None
+
+        if not transfer or message.get('id') != transfer['id'] or transfer['received_bytes'] != transfer['bytes'] or \
+                len(transfer['parts']) != transfer['chunks']:
+            await self.send_json({'type': 'error', 'code': 'invalid_message', 'message': 'The interview received an invalid message.'})
+            return
+
+        await self.handle_audio(b''.join(transfer['parts']), force_turn=transfer['manual'])
 
     async def handle_audio(self, audio_bytes, force_turn=False):
         ''' Add one browser speech segment to the pending candidate turn and probe whether the turn is complete. '''
@@ -363,7 +428,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
 
         try:
             audio = await sync_to_async(model_runtime.suite.speak, thread_sensitive=False)(text)
-            await self.send(bytes_data=audio)
+            await self.send_audio(audio)
 
         except Exception as error:  # noqa: BLE001
             LOGGER.exception('Interviewer speech synthesis failed: %s', error)
@@ -371,6 +436,26 @@ class InterviewConsumer(AsyncWebsocketConsumer):
 
         if not final:
             await self.send_json({'type': 'ready'})
+
+    async def send_audio(self, audio):
+        ''' Send one logical WAV as bounded WebSocket messages so transport limits never depend on utterance length. '''
+        transfer_id = uuid.uuid4().hex
+        total_bytes = len(audio)
+        total_chunks = (total_bytes + AUDIO_CHUNK_BYTES - 1) // AUDIO_CHUNK_BYTES
+
+        async with self.audio_send_lock:
+            await self.send_json({
+                'type': 'audio_start',
+                'id': transfer_id,
+                'mime': 'audio/wav',
+                'bytes': total_bytes,
+                'chunks': total_chunks,
+            })
+
+            for offset in range(0, total_bytes, AUDIO_CHUNK_BYTES):
+                await self.send(bytes_data=audio[offset:offset + AUDIO_CHUNK_BYTES])
+
+            await self.send_json({'type': 'audio_end', 'id': transfer_id})
 
     async def finish_with_closing_message(self):
         ''' Persist a final interviewer closing, end the live session and hand the interview to post-interview evaluation. '''

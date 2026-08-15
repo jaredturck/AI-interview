@@ -7,8 +7,18 @@ import type { InterviewResult, InterviewStatusResponse, JobSummary, LiveStatus, 
 const TERMINAL_STATUSES = ['completed', 'terminated', 'evaluating', 'evaluated', 'evaluation_failed'];
 const PAUSE_PROBE_MS = 2000;
 const SPEECH_THRESHOLD = 0.012;
+const AUDIO_CHUNK_BYTES = 256 * 1024;
+const MAX_CANDIDATE_AUDIO_BYTES = 20000000;
 
 type MicrophoneMode = 'open' | 'closed';
+type IncomingAudioTransfer = {
+    id: string;
+    mime: string;
+    expected_bytes: number;
+    expected_chunks: number;
+    received_bytes: number;
+    chunks: ArrayBuffer[];
+};
 
 export default function useInterview(interview_id: string) {
     const {t} = useTranslation();
@@ -51,7 +61,8 @@ export default function useInterview(interview_id: string) {
     const pending_transcript_ref = useRef('');
     const candidate_pending_ref = useRef(false);
     const discard_recording_ref = useRef(false);
-    const pending_audio_ref = useRef<{buffer: ArrayBuffer; manual: boolean}[]>([]);
+    const pending_audio_ref = useRef<{buffer: ArrayBuffer; manual: boolean; mime: string}[]>([]);
+    const incoming_audio_ref = useRef<IncomingAudioTransfer | null>(null);
 
     useEffect(() => {
         load_interview();
@@ -136,8 +147,7 @@ export default function useInterview(interview_id: string) {
         }
     }
 
-    function play_audio(buffer: ArrayBuffer) {
-        const blob = new Blob([buffer], {type: 'audio/wav'});
+    function play_audio(blob: Blob) {
         const url = URL.createObjectURL(blob);
 
         if (last_audio_ref.current) {
@@ -187,13 +197,55 @@ export default function useInterview(interview_id: string) {
 
     function handle_socket_message(event: MessageEvent) {
         if (event.data instanceof ArrayBuffer) {
-            play_audio(event.data);
+            const transfer = incoming_audio_ref.current;
+
+            if (!transfer) {
+                return;
+            }
+
+            if (event.data.byteLength > AUDIO_CHUNK_BYTES || transfer.chunks.length >= transfer.expected_chunks ||
+                transfer.received_bytes + event.data.byteLength > transfer.expected_bytes) {
+                incoming_audio_ref.current = null;
+                set_error(t('errors.audioUnavailable'));
+                return;
+            }
+
+            transfer.chunks.push(event.data);
+            transfer.received_bytes += event.data.byteLength;
             return;
         }
 
         const message = JSON.parse(event.data as string) as WebSocketMessage;
 
-        if (message.type === 'history') {
+        if (message.type === 'audio_start') {
+            const expected_chunks = Math.ceil(message.bytes / AUDIO_CHUNK_BYTES);
+
+            if (message.bytes < 0 || message.chunks !== expected_chunks) {
+                incoming_audio_ref.current = null;
+                set_error(t('errors.audioUnavailable'));
+                return;
+            }
+
+            incoming_audio_ref.current = {
+                id: message.id,
+                mime: message.mime,
+                expected_bytes: message.bytes,
+                expected_chunks: message.chunks,
+                received_bytes: 0,
+                chunks: [],
+            };
+        } else if (message.type === 'audio_end') {
+            const transfer = incoming_audio_ref.current;
+            incoming_audio_ref.current = null;
+
+            if (!transfer || transfer.id !== message.id || transfer.received_bytes !== transfer.expected_bytes ||
+                transfer.chunks.length !== transfer.expected_chunks) {
+                set_error(t('errors.audioUnavailable'));
+                return;
+            }
+
+            play_audio(new Blob(transfer.chunks, {type: transfer.mime}));
+        } else if (message.type === 'history') {
             set_messages(message.turns.map((turn) => ({...turn, id: crypto.randomUUID()})));
             set_candidate_pending(false);
             set_assistant_pending(false);
@@ -249,6 +301,25 @@ export default function useInterview(interview_id: string) {
         }
     }
 
+    function send_candidate_audio(socket: WebSocket, buffer: ArrayBuffer, manual: boolean, mime: string) {
+        const transfer_id = crypto.randomUUID();
+        const total_chunks = Math.ceil(buffer.byteLength / AUDIO_CHUNK_BYTES);
+        socket.send(JSON.stringify({
+            type: 'audio_start',
+            id: transfer_id,
+            mime,
+            bytes: buffer.byteLength,
+            chunks: total_chunks,
+            manual,
+        }));
+
+        for (let offset = 0; offset < buffer.byteLength; offset += AUDIO_CHUNK_BYTES) {
+            socket.send(buffer.slice(offset, offset + AUDIO_CHUNK_BYTES));
+        }
+
+        socket.send(JSON.stringify({type: 'audio_end', id: transfer_id}));
+    }
+
     function connect_session() {
         if (websocket_ref.current && (websocket_ref.current.readyState === WebSocket.CONNECTING || websocket_ref.current.readyState === WebSocket.OPEN)) {
             return;
@@ -260,14 +331,14 @@ export default function useInterview(interview_id: string) {
         socket.binaryType = 'arraybuffer';
         socket.onopen = () => {
             pending_audio_ref.current.forEach((item) => {
-                socket.send(JSON.stringify({type: 'audio_mode', manual: item.manual}));
-                socket.send(item.buffer);
+                send_candidate_audio(socket, item.buffer, item.manual, item.mime);
             });
             pending_audio_ref.current = [];
         };
         socket.onmessage = handle_socket_message;
         socket.onerror = () => set_error(t('errors.connection'));
         socket.onclose = (event) => {
+            incoming_audio_ref.current = null;
             if (event.code === 4429) {
                 set_error(t('errors.workerBusy'));
                 set_status('idle');
@@ -408,14 +479,17 @@ export default function useInterview(interview_id: string) {
 
                 set_candidate_pending(true);
 
-                if (websocket_ref.current?.readyState === WebSocket.OPEN) {
-                    websocket_ref.current.send(JSON.stringify({type: 'audio_mode', manual}));
-                    websocket_ref.current.send(buffer);
+                if (buffer.byteLength > MAX_CANDIDATE_AUDIO_BYTES) {
+                    set_candidate_pending(false);
+                    set_error(t('errors.recording_too_large'));
+                    set_status('ready');
+                } else if (websocket_ref.current?.readyState === WebSocket.OPEN) {
+                    send_candidate_audio(websocket_ref.current, buffer, manual, blob.type);
+                    set_status(manual ? 'transcribing' : 'listening');
                 } else {
-                    pending_audio_ref.current.push({buffer, manual});
+                    pending_audio_ref.current.push({buffer, manual, mime: blob.type});
+                    set_status(manual ? 'transcribing' : 'listening');
                 }
-
-                set_status(manual ? 'transcribing' : 'listening');
             }
 
             if (microphone_mode_ref.current === 'closed') {
@@ -589,6 +663,7 @@ export default function useInterview(interview_id: string) {
         audio_playing_ref.current = false;
         candidate_pending_ref.current = false;
         pending_audio_ref.current = [];
+        incoming_audio_ref.current = null;
         websocket_ref.current?.close();
         websocket_ref.current = null;
     }
