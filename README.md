@@ -32,7 +32,10 @@ Primary engineering docs:
 - `docs/VOICE_PIPELINE.md`
 - `docs/MODELS.md`
 - `docs/PERFORMANCE.md`
+- `docs/PROMPTS.md`
+- `docs/TESTING.md`
 - `docs/STYLE_GUIDE.md`
+- `TODO.md` for reconciled remaining work
 
 ## Requirements
 
@@ -167,6 +170,10 @@ The interviewer sees the hidden Job rubric and gathers evidence through role-rel
 ## Voice behaviour
 
 Open microphone is the default after explicit browser permission. The `MediaStream` stays active for the interview; pause-delimited recording segments are sent automatically. Push-to-talk remains available as an explicit closed-microphone mode.
+
+Candidate recordings and interviewer WAV output use bounded WebSocket transfers: `audio_start`, binary chunks of at most 256 KiB, then `audio_end`. Candidate logical transfers are capped at 20 MB and are validated before reassembly.
+
+Interview duration is server-authoritative. The stopping controller can continue, enter wrap-up or end based on evidence coverage; Python forces wrap-up at 13 minutes and a hard stop at 15 minutes. The browser countdown is initialized from server-reported remaining time.
 
 The transcript panel uses temporary candidate/interviewer `...` bubbles while audio or AI work is pending. Temporary UI state is never persisted as interview evidence.
 
