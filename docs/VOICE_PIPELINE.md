@@ -62,18 +62,21 @@ Closed microphone mode remains explicit:
 Speak -> record -> Finish speaking -> Silero VAD -> Qwen3-ASR -> interviewer
 ```
 
-The browser sends `audio_mode.manual=true` before the binary audio frame. Manual submission still passes Silero but bypasses Smart Turn because the button press is an explicit end-of-turn signal.
+The browser sets `manual: true` on the `audio_start` control message for that recording. Manual submission still passes Silero but bypasses Smart Turn because the button press is an explicit end-of-turn signal.
 
 ## WebSocket voice messages
 
 Browser to backend:
 
 ```json
-{"type":"audio_mode","manual":false}
+{"type":"audio_start","id":"<transfer-id>","mime":"audio/webm","bytes":123456,"chunks":1,"manual":false}
 {"type":"speech_resumed"}
+{"type":"audio_end","id":"<transfer-id>"}
 ```
 
-Audio itself remains a binary WebSocket frame.
+Each logical candidate recording is framed as `audio_start` -> one or more binary chunks -> `audio_end`. Binary messages are capped at 256 KiB and the backend validates the declared byte/chunk counts before reassembly; a candidate logical transfer is capped at 20 MB. Push-to-talk uses the same framing with `manual: true`.
+
+Interviewer WAV output uses the same framed transfer in the opposite direction: `audio_start` with `mime: audio/wav`, bounded binary chunks, then `audio_end`. This keeps logical audio duration independent of Daphne's per-message payload limit.
 
 Backend to browser:
 
